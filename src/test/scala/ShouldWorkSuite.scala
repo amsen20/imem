@@ -1,4 +1,4 @@
-class ListSuite extends munit.FunSuite {
+class ListShouldWorkSuite extends munit.FunSuite {
 
   test("basics: push and pop") {
     val list = imem.Box[imem.List[Int]](imem.List[Int]())
@@ -41,9 +41,9 @@ class ListSuite extends munit.FunSuite {
     imem.push(list.borrowMut, BoxedInteger(2))
     imem.push(list.borrowMut, BoxedInteger(3))
 
-    // ! this is just an `Option[T]` while it should be `Option[ImmutRef[T]]`
+    // TODO: this is just an `Option[T]` while it should be `Option[ImmutRef[T]]`
     assertEquals(imem.peek(list.borrowImmut), Some(BoxedInteger(3)))
-    // ! this is just an `Option[T]` while it should be `Option[MutRef[T]]`
+    // TODO: this is just an `Option[T]` while it should be `Option[MutRef[T]]`
     assertEquals(imem.peekMut(list.borrowMut), Some(BoxedInteger(3)))
 
     // Modify the value using the mutable reference from peekMut
