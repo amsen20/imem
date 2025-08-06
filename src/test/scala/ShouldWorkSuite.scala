@@ -1,14 +1,12 @@
 class ResourceShouldWorkSuite extends munit.FunSuite {
-  test(
-    "basics: borrow, mutate and read"
-  ) {
+  test("basics: borrow, mutate and read") {
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
     val myVal = imem.Box[BoxedInteger](BoxedInteger(42));
 
-    assertEquals(myVal.borrowImmut.value, BoxedInteger(42));
+    assertEquals(myVal.borrowImmut.getValue, BoxedInteger(42));
     myVal.borrowMut.value.value = 12;
-    assertEquals(myVal.borrowImmut.value, BoxedInteger(12));
+    assertEquals(myVal.borrowImmut.getValue, BoxedInteger(12));
   }
 }
 

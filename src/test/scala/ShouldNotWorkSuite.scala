@@ -1,3 +1,31 @@
+import scala.compiletime.ops.int
+class ResourceShouldNotWorkSuite extends munit.FunSuite {
+  test("should not be able to mutate, while reading it") {
+    // A way to express a mutable integer.
+    case class BoxedInteger(var value: Int)
+    val myVal = imem.Box[BoxedInteger](BoxedInteger(42));
+
+    val immutRef = myVal.borrowImmut
+    myVal.borrowMut.getValue.value = 12;
+    intercept[IllegalStateException] {
+      immutRef.getValue
+    }
+  }
+
+  test("borrows should be invalidated after moving") {
+    // A way to express a mutable integer.
+    case class BoxedInteger(var value: Int)
+    val myVal = imem.Box[BoxedInteger](BoxedInteger(42));
+    val immutRef = myVal.borrowImmut
+
+    val myOtherVal = myVal
+
+    intercept[IllegalStateException] {
+      immutRef.getValue
+    }
+  }
+}
+
 class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to push/pop while peeking (mut or immut)") {
