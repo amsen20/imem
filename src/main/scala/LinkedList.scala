@@ -30,7 +30,7 @@ def peek[T](self: ImmutRef[List[T]]): Option[T] = {
   }
 }
 
-def peekMut[T](self: ImmutRef[List[T]]): Option[T] = {
+def peekMut[T](self: MutRef[List[T]]): Option[T] = {
   self.getValue.head match {
     case None => None
     case Some(nodeBox) =>
