@@ -1,9 +1,35 @@
 import scala.compiletime.ops.int
 class ResourceShouldNotWorkSuite extends munit.FunSuite {
+  test("should not be able to write to a reference, by reading it") {
+    // A way to express a mutable integer.
+    case class BoxedInteger(var value: Int)
+    val myVal = imem.Box[BoxedInteger](BoxedInteger(42))
+
+    // TODO: For now, there is no difference between, `read` and `write` methods. Both can mutate the value. This
+    // Should be changed, at least in runtime or compile-time, mutation through `read`s should not be allowed.
+    // FIXME: Due to explained reason, it will evaluate fine.
+    // intercept[IllegalStateException] {
+    myVal.borrowImmut.read(v => v.value = 12)
+    // }
+  }
+
+  test("should not be able to escape a value through `read`/`write` methods of a reference") {
+    // A way to express a mutable integer.
+    case class BoxedInteger(var value: Int)
+    val myVal = imem.Box[BoxedInteger](BoxedInteger(42))
+
+    // TODO: For now, values can be leaked though `read` and `write` methods. This should be changed, at least in
+    // runtime or compile-time.
+    // FIXME: Due to explained reason, it will evaluate fine.
+    // intercept[Exception] {
+    myVal.borrowImmut.read(v => v).value
+    // }
+  }
+
   test("should not be able to mutate, while reading it") {
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val myVal = imem.Box[BoxedInteger](BoxedInteger(42));
+    val myVal = imem.Box[BoxedInteger](BoxedInteger(42))
 
     val immutRef = myVal.borrowImmut
     myVal.borrowMut.write(_.value = 12)
@@ -18,11 +44,11 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
     val myVal = imem.Box[BoxedInteger](BoxedInteger(42));
     val immutRef = myVal.borrowImmut
 
-    // TODO: for now no moving runtime/compile time effect is defined, so the following line will have no effect in the
+    // TODO: For now no moving runtime/compile time effect is defined, so the following line will have no effect in the
     // stacked borrows. Should track moves in at least runtime or compile time.
     val myOtherVal = myVal
 
-    // FIXME: due to explained reason, it will evaluate fine.
+    // FIXME: Due to explained reason, it will evaluate fine.
     // intercept[IllegalStateException] {
     immutRef.read(_ => ())
     // }
@@ -39,7 +65,7 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
     // mutating `list` does not affect `res`. The connection should be established at least in runtime or compile-time.
     val res = imem.peek(list.borrowImmut)
 
-    // FIXME: due to explained reason, it will evaluate fine.
+    // FIXME: Due to explained reason, it will evaluate fine.
     // intercept[IllegalStateException] {
     imem.push(list.borrowMut, 2)
     res.get.read(_ => ()) // idle read
@@ -54,7 +80,7 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
     // mutating `list` does not affect `res`. The connection should be established at in runtime or compile-time.
     val res = imem.peekMut(list.borrowMut)
 
-    // FIXME: due to explained reason, it will evaluate fine.
+    // FIXME: Due to explained reason, it will evaluate fine.
     // intercept[IllegalStateException] {
     imem.push(list.borrowMut, 2)
     res.get.read(_ => ()) // idle read
@@ -88,7 +114,7 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
     // stacked borrows. Should track moves in at least runtime or compile time.
     val iter = imem.intoIter(list)
 
-    // FIXME: due to explained reason, it will evaluate fine.
+    // FIXME: Due to explained reason, it will evaluate fine.
     // intercept[IllegalStateException] {
     imem.peek(list.borrowImmut)
     // }
@@ -100,11 +126,11 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
     imem.push(list.borrowMut, 2)
     imem.push(list.borrowMut, 3)
 
-    // TODO: for now no moving runtime/compile time effect is defined, so the following line will have no effect in the
+    // TODO: For now no moving runtime/compile time effect is defined, so the following line will have no effect in the
     // stacked borrows. Should track moves in at least runtime or compile time.
     val iter = imem.intoIter(list)
 
-    // FIXME: due to explained reason, it will evaluate fine.
+    // FIXME: Due to explained reason, it will evaluate fine.
     // intercept[IllegalStateException] {
     imem.intoIter(list)
     // }
