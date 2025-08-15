@@ -1,5 +1,14 @@
 import scala.compiletime.ops.int
 class ResourceShouldNotWorkSuite extends munit.FunSuite {
+  test("box should not be able to assigned to a variable") {
+    // TODO: A `Box` type should not be able to be assigned to a variable because it forces the user to use `Box`'s
+    // methods to set and reset it. Using them we can keep track of the ownership state.
+    // FIXME: Due to explained reason, it will evaluate fine.
+    // intercept[Exception] {
+    var myVal = imem.Box[Int](42)
+    // }
+  }
+
   test("should not be able to write to a reference, by reading it") {
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
