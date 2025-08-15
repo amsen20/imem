@@ -4,7 +4,7 @@ import scala.language.experimental.captureChecking
 
 /** Overall list
   *
-  * TODO have to make most of the fields and methods private, and also classes final. At the end,
+  * TODO: have to make most of the fields and methods private, and also classes final. At the end,
   * the user should NOT be able to:
   *   - Create `UnsafeRef`/`InternalRef`/`ImmutRef`/`MutRef` instances directly.
   *   - Access the `value` field any way other than `read`/`write` methods.
@@ -16,7 +16,7 @@ import scala.language.experimental.captureChecking
 
 class UnsafeRef[T](val value: T):
   def read[S](readAction: T /*^*/ => S): S = readAction(value)
-  // TODO This should be exclusive mutable capability.
+  // TODO: This should be exclusive mutable capability.
   def modify[S](writeAction: T /*^*/ => S): S = writeAction(value)
 end UnsafeRef
 
@@ -50,7 +50,7 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
   end Tag
 
   class Stack:
-    // TODO change it back to `Tag`, and don't expose tags out of `InternalRef`
+    // TODO: change it back to `Tag`, and don't expose tags out of `InternalRef`
     val borrows = scala.collection.mutable.Stack[InternalRef[T]#Tag]()
   end Stack
 
@@ -59,7 +59,7 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
 
   /** Rule (NEW-MUTABLE-REF)
     *
-    * TODO first consider returning errors, instead of throwing exceptions. If throwing is the
+    * TODO: first consider returning errors, instead of throwing exceptions. If throwing is the
     * decision, check if `@throws` is the correct way to inform the API user about it, or it should
     * be part of the return type annotation (e.g. `throws[Unit]`). Also, check if
     * `IllegalStateException` is the correct exception to throw in this case. Should a package
@@ -72,14 +72,14 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
     val newTag = Tag.Uniq(currentTimeStamp)
     stack.borrows.push(newTag)
 
-    /** TODO consider instead of passing a tag and this class to the reference, pass an
+    /** TODO: consider instead of passing a tag and this class to the reference, pass an
       * implementation of an interface that allows the reference to do the borrowing and accessing.
       */
     MutRef(newTag, this)
 
   /** Rule (USE-1)
     *
-    * TODO the same as `newMut`
+    * TODO: the same as `newMut`
     */
   @throws(classOf[IllegalStateException])
   def useCheck(tag: InternalRef[T]#Tag): Unit =
@@ -93,7 +93,7 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
 
   /** Rule (NEW-SHARED-REF-1)
     *
-    * TODO the same as `newMut`
+    * TODO: the same as `newMut`
     */
   @throws(classOf[IllegalStateException])
   def newSharedRef(derived: InternalRef[T]#Tag): ImmutRef[T] =
@@ -105,7 +105,7 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
 
   /** Rule (READ-1)
     *
-    * TODO the same as `newMut`
+    * TODO: the same as `newMut`
     */
   @throws(classOf[IllegalStateException])
   def readCheck(tag: InternalRef[T]#Tag): Unit =
@@ -120,14 +120,14 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
         )
         .foreach(stack.borrows.push(_))
 
-  /** TODO the same as `newMut`
+  /** TODO: the same as `newMut`
     */
   @throws(classOf[IllegalStateException])
   def read[S](tag: InternalRef[T]#Tag, readAction: T => S): S =
     readCheck(tag)
     unsafeRef.read(readAction)
 
-  /** TODO the same as `newMut`
+  /** TODO: the same as `newMut`
     */
   @throws(classOf[IllegalStateException])
   def write[S](tag: InternalRef[T]#Tag, writeAction: T => S): S =
@@ -139,7 +139,7 @@ end InternalRef
 object InternalRef:
   def newWithTag[T](value: T): (InternalRef[T], InternalRef[T]#Tag) =
     val ref = new InternalRef(UnsafeRef(value))
-    // TODO make it cleaner, looks like a dirty way to create a new tag.
+    // TODO: make it cleaner, looks like a dirty way to create a new tag.
     val firstTag = ref.Tag.Uniq(ref.currentTimeStamp)
     ref.currentTimeStamp += 1
     ref.stack.borrows.push(firstTag)

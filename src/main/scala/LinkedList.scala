@@ -8,19 +8,19 @@ class Node[T](val elem: Box[T], var next: Link[T])
 
 // Implementation of List[T]
 def push[T](self: MutRef[List[T]], elem: T): Unit =
-  /** TODO it's escaping `head` and should be avoided but for now it's like this, so when escape
+  /** NOTE: it's escaping `head` and should be avoided but for now it's like this, so when escape
     * prevention happened a compile error should appear around here.
     */
-  val newNode = Node(Box(elem), self.read(_.head)) // TODO `head` is escaping.
+  val newNode = Node(Box(elem), self.read(_.head)) // NOTE: `head` is escaping.
   self.write(_.head = Some(Box(newNode)))
 
 def pop[T](self: MutRef[List[T]]): Option[Box[T]] =
   self.read(_.head match {
     case None          => None
     case Some(nodeBox) =>
-      // TODO it's weird that it is being borrowed immutably but, a field of it (.elem) is moved out.
+      // NOTE: it's weird that it is being borrowed immutably but, a field of it (.elem) is moved out.
       nodeBox.borrowImmut.read(node =>
-        // TODO it looks weird, first it's borrowed for read, and then it's borrowed for write.
+        // NOTE: it looks weird, first it's borrowed for read, and then it's borrowed for write.
         self.write(_.head = node.next)
         Some(node.elem)
       )
@@ -37,7 +37,7 @@ def peekMut[T](self: MutRef[List[T]]): Option[MutRef[T]] =
   self.read(_.head match
     case None          => None
     case Some(nodeBox) =>
-      // TODO it's wrong that it has mut borrow access to `elem` box through read method if nodeBox.
+      // NOTE: it's wrong that it has mut borrow access to `elem` box through read method if nodeBox.
       Some(nodeBox.borrowMut.read(_.elem.borrowMut))
   )
 
@@ -54,7 +54,7 @@ def intoIter[T](self: Box[List[T]]): Iterator[Box[T]] = new Iterator[Box[T]] {
 // Immutable iterator
 def iter[T](self: ImmutRef[List[T]]): Iterator[ImmutRef[T]] = new Iterator[ImmutRef[T]] {
   private var current: Option[ImmutRef[Node[T]]] = self.read(
-    // TODO this could be borrowMut and nothing would have happened.
+    // NOTE: this could be borrowMut and nothing would have happened.
     _.head.map(_.borrowImmut)
   )
   def hasNext: Boolean = current.isDefined
@@ -63,7 +63,7 @@ def iter[T](self: ImmutRef[List[T]]): Iterator[ImmutRef[T]] = new Iterator[Immut
       case Some(nodeRef) =>
         nodeRef.read(node =>
           current = node.next.map(_.borrowImmut)
-          // TODO this could be borrowMut and nothing would have happened.
+          // NOTE: this could be borrowMut and nothing would have happened.
           node.elem.borrowImmut
         )
       case None =>
