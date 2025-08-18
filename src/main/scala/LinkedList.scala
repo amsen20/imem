@@ -1,68 +1,79 @@
 package imem
 
-class List[T](var head: Link[T] = None)
+class List[T](val head: Box[Link[T]] = Box[Link[T]](None))
 
 type Link[T] = Option[Box[Node[T]]]
 
-class Node[T](val elem: Box[T], var next: Link[T])
+class Node[T](val elem: Box[T], val next: Box[Link[T]])
 
 // Implementation of List[T]
 def push[T](self: MutRef[List[T]], elem: T): Unit =
-  /** NOTE: it's escaping `head` and should be avoided but for now it's like this, so when escape
-    * prevention happened a compile error should appear around here.
-    */
-  val newNode = Node(Box(elem), self.read(_.head)) // NOTE: `head` is escaping.
-  self.write(_.head = Some(Box(newNode)))
+  val newNode = Node(Box(elem), Box(None))
+  if isEmpty(self.borrowImmut) then self.write(list => list.head.set(Some(Box(newNode))))
+  else
+    self.write(list =>
+      newNode.next.swap(list.head)
+      list.head.set(Some(Box(newNode)))
+    )
 
 def pop[T](self: MutRef[List[T]]): Option[Box[T]] =
-  self.read(_.head match {
-    case None          => None
-    case Some(nodeBox) =>
-      // NOTE: it's weird that it is being borrowed immutably but, a field of it (.elem) is moved out.
-      nodeBox.borrowImmut.read(node =>
-        // NOTE: it looks weird, first it's borrowed for read, and then it's borrowed for write.
-        self.write(_.head = node.next)
-        Some(node.elem)
-      )
-  })
+  if isEmpty(self.borrowImmut) then None
+  else
+    val list = self.borrowMut
+    val currentHead = self.write(list =>
+      val currentHead = Box[Link[T]](None)
+      list.head.swap(currentHead)
+      currentHead
+    )
+
+    // NOTE: A lot of things can go (and might) go wrong here.
+    // It's good to make a `ShouldNotWork` test out of each of them.
+    currentHead.borrowMut.write(_ match {
+      case None => None
+      case Some(nodeBox) =>
+        self.write(list => nodeBox.borrowMut.write(_.next.swap(list.head)))
+        Some(nodeBox.borrowMut.write(_.elem.move()))
+    })
 
 def peek[T](self: ImmutRef[List[T]]): Option[ImmutRef[T]] =
-  self.read(_.head match
+  self.read(_.head.borrowImmut.read(_ match
     case None => None
     case Some(nodeBox) =>
       Some(nodeBox.borrowImmut.read(_.elem.borrowImmut))
-  )
+  ))
 
 def peekMut[T](self: MutRef[List[T]]): Option[MutRef[T]] =
-  self.read(_.head match
+  self.read(_.head.borrowMut.read(_ match
     case None          => None
     case Some(nodeBox) =>
       // NOTE: it's wrong that it has mut borrow access to `elem` box through read method if nodeBox.
       Some(nodeBox.borrowMut.read(_.elem.borrowMut))
-  )
+  ))
 
 def isEmpty[T](self: ImmutRef[List[T]]): Boolean =
-  self.read(_.head.isEmpty)
+  self.read(_.head.borrowImmut.read(_.isEmpty))
 
 // One time iterator
 def intoIter[T](self: Box[List[T]]): Iterator[Box[T]] = new Iterator[Box[T]] {
-  def hasNext: Boolean = !imem.isEmpty(self.borrowImmut)
+  // Move self to not be accessible
+  val list = self.move()
+  def hasNext: Boolean = !imem.isEmpty(list.borrowImmut)
   def next(): Box[T] =
-    pop(self.borrowMut).getOrElse(throw new NoSuchElementException("next on empty iterator"))
+    pop(list.borrowMut).getOrElse(throw new NoSuchElementException("next on empty iterator"))
 }
 
 // Immutable iterator
 def iter[T](self: ImmutRef[List[T]]): Iterator[ImmutRef[T]] = new Iterator[ImmutRef[T]] {
   private var current: Option[ImmutRef[Node[T]]] = self.read(
     // NOTE: this could be borrowMut and nothing would have happened.
-    _.head.map(_.borrowImmut)
+    _.head.borrowImmut.read(_.map(_.borrowImmut))
   )
   def hasNext: Boolean = current.isDefined
   def next(): ImmutRef[T] =
     current match
       case Some(nodeRef) =>
         nodeRef.read(node =>
-          current = node.next.map(_.borrowImmut)
+          current = node.next.borrowImmut.read(_.map(_.borrowImmut))
           // NOTE: this could be borrowMut and nothing would have happened.
           node.elem.borrowImmut
         )
@@ -74,14 +85,16 @@ def iter[T](self: ImmutRef[List[T]]): Iterator[ImmutRef[T]] = new Iterator[Immut
 // Mutable iterator
 def iterMut[T](self: MutRef[List[T]]): Iterator[MutRef[T]] = new Iterator[MutRef[T]] {
   private var current: Option[MutRef[Node[T]]] = self.read(
-    _.head.map(_.borrowMut)
+    // TODO: Should ban borrow muting while reading.
+    // The question is will be automatically banned by exclusive capabilities?
+    _.head.borrowMut.read(_.map(_.borrowMut))
   )
   def hasNext: Boolean = current.isDefined
   def next(): MutRef[T] =
     current match
       case Some(nodeRef) =>
         nodeRef.read(node =>
-          current = node.next.map(_.borrowMut)
+          current = node.next.borrowMut.read(_.map(_.borrowMut))
           node.elem.borrowMut
         )
       case None =>
