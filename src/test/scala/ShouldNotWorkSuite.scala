@@ -4,7 +4,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
     // TODO: Should not compile, should make the constructor private.
     // FIXME: Due to explained reason, it will evaluate fine.
     intercept[Exception] {
-      new imem.Box[Int]()
+      new imem.resource.Box[Int]()
     }
   }
 
@@ -13,14 +13,14 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
     // methods to set and reset it. Using them we can keep track of the ownership state.
     // FIXME: Due to explained reason, it will evaluate fine.
     intercept[Exception] {
-      var myVal = imem.Box[Int](42)
+      var myVal = imem.resource.Box[Int](42)
     }
   }
 
   test("should not be able to write to a reference, by reading it") {
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val myVal = imem.Box[BoxedInteger](BoxedInteger(42))
+    val myVal = imem.resource.Box[BoxedInteger](BoxedInteger(42))
 
     // TODO: For now, there is no difference between, `read` and `write` methods. Both can mutate the value. This
     // Should be changed, at least in runtime or compile-time, mutation through `read`s should not be allowed.
@@ -33,7 +33,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
   test("should not be able to escape a value through `read`/`write` methods of a reference") {
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val myVal = imem.Box[BoxedInteger](BoxedInteger(42))
+    val myVal = imem.resource.Box[BoxedInteger](BoxedInteger(42))
 
     // TODO: For now, values can be leaked though `read` and `write` methods. This should be changed, at least in
     // runtime or compile-time.
@@ -46,7 +46,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
   test("should not be able to mutate, while reading it") {
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val myVal = imem.Box[BoxedInteger](BoxedInteger(42))
+    val myVal = imem.resource.Box[BoxedInteger](BoxedInteger(42))
 
     val immutRef = myVal.borrowImmut
     myVal.borrowMut.write(_.value = 12)
@@ -58,7 +58,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
   test("borrows should be invalidated after moving") {
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val myVal = imem.Box[BoxedInteger](BoxedInteger(42));
+    val myVal = imem.resource.Box[BoxedInteger](BoxedInteger(42));
     val immutRef = myVal.borrowImmut
 
     // TODO: For now no moving runtime/compile time effect is defined, so the following line will have no effect in the
@@ -75,7 +75,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
 class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to push while peeking immutably") {
-    val list = imem.Box[imem.List[Int]](imem.List[Int]())
+    val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
 
     // TODO: Although `res` is a immutable reference, there is no connection between `res` and `list`, meaning
@@ -90,7 +90,7 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("should not be able to push while peeking mutably") {
-    val list = imem.Box[imem.List[Int]](imem.List[Int]())
+    val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
 
     // TODO: Although `res` is a mutable reference, there is no connection between `res` and `list`, meaning
@@ -105,7 +105,7 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("should not be able to push/pop while iterating") {
-    val list = imem.Box[imem.List[Int]](imem.List[Int]())
+    val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
     imem.push(list.borrowMut, 2)
     imem.push(list.borrowMut, 3)
@@ -118,7 +118,7 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("should not be able to peek list after it is consumed") {
-    val list = imem.Box[imem.List[Int]](imem.List[Int]())
+    val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
     imem.push(list.borrowMut, 2)
     imem.push(list.borrowMut, 3)
@@ -131,7 +131,7 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("should not be able to re-consume list after it is consumed") {
-    val list = imem.Box[imem.List[Int]](imem.List[Int]())
+    val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
     imem.push(list.borrowMut, 2)
     imem.push(list.borrowMut, 3)

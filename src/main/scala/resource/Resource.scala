@@ -1,7 +1,7 @@
-package imem
+package imem.resource
 
-import scala.language.experimental.captureChecking
 import scala.collection.IndexedSeqView.Drop
+import scala.language.experimental.captureChecking
 
 /** Overall list
   *

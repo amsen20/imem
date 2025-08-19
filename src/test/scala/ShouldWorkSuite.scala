@@ -2,7 +2,7 @@ class ResourceShouldWorkSuite extends munit.FunSuite:
   test("basics: borrow, mutate and read") {
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val myVal = imem.Box[BoxedInteger](BoxedInteger(42))
+    val myVal = imem.resource.Box[BoxedInteger](BoxedInteger(42))
 
     assert(myVal.borrowImmut.read(_ == BoxedInteger(42)))
     myVal.borrowMut.write(_.value = 12)
@@ -13,7 +13,7 @@ end ResourceShouldWorkSuite
 class ListShouldWorkSuite extends munit.FunSuite:
 
   test("basics: push and pop") {
-    val list = imem.Box[imem.List[Int]](imem.List[Int]())
+    val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
 
     val mutList = list.borrowMut
 
@@ -45,7 +45,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
   test("peek and peekMut") {
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val list = imem.Box[imem.List[BoxedInteger]](imem.List[BoxedInteger]())
+    val list = imem.resource.Box[imem.List[BoxedInteger]](imem.List[BoxedInteger]())
     assertEquals(imem.peek(list.borrowImmut), None)
     assertEquals(imem.peekMut(list.borrowMut), None)
 
@@ -66,7 +66,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
   }
 
   test("into_iter: consuming iterator") {
-    val list = imem.Box[imem.List[Int]](imem.List[Int]())
+    val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
     imem.push(list.borrowMut, 2)
     imem.push(list.borrowMut, 3)
@@ -79,7 +79,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
   }
 
   test("iter: non-consuming immutable iterator") {
-    val list = imem.Box[imem.List[Int]](imem.List[Int]())
+    val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
     imem.push(list.borrowMut, 2)
     imem.push(list.borrowMut, 3)
@@ -101,7 +101,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
   test("iter_mut: non-consuming mutable iterator") {
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val list = imem.Box[imem.List[BoxedInteger]](imem.List[BoxedInteger]())
+    val list = imem.resource.Box[imem.List[BoxedInteger]](imem.List[BoxedInteger]())
 
     imem.push(list.borrowMut, BoxedInteger(1))
     imem.push(list.borrowMut, BoxedInteger(2))
