@@ -7,3 +7,4 @@
   - Leaking the `value` field
   - Modifying the `value` using `read` method (consider exclusive capabilities)
   - Copying Box, ImmutRef, or MutRef freely (consider dependent types)
+  - Replace `Context` with compile-time checks

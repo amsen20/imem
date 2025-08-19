@@ -7,7 +7,7 @@ type Link[T] = Option[resource.Box[Node[T]]]
 class Node[T](val elem: resource.Box[T], val next: resource.Box[Link[T]])
 
 // Implementation of List[T]
-def push[T](self: resource.MutRef[List[T]], elem: T): Unit =
+def push[T](self: resource.MutRef[List[T]], elem: T)(using resource.Context): Unit =
   val newNode = Node(resource.Box(elem), resource.Box(None))
   if isEmpty(self.borrowImmut) then self.write(list => list.head.set(Some(resource.Box(newNode))))
   else
@@ -16,7 +16,7 @@ def push[T](self: resource.MutRef[List[T]], elem: T): Unit =
       list.head.set(Some(resource.Box(newNode)))
     )
 
-def pop[T](self: resource.MutRef[List[T]]): Option[resource.Box[T]] =
+def pop[T](self: resource.MutRef[List[T]])(using resource.Context): Option[resource.Box[T]] =
   if isEmpty(self.borrowImmut) then None
   else
     val list = self.borrowMut
@@ -35,14 +35,16 @@ def pop[T](self: resource.MutRef[List[T]]): Option[resource.Box[T]] =
         Some(nodeBox.borrowMut.write(_.elem.move()))
     })
 
-def peek[T](self: resource.ImmutRef[List[T]]): Option[resource.ImmutRef[T]] =
+def peek[T](self: resource.ImmutRef[List[T]])(using
+    resource.Context
+): Option[resource.ImmutRef[T]] =
   self.read(_.head.borrowImmut.read(_ match
     case None => None
     case Some(nodeBox) =>
       Some(nodeBox.borrowImmut.read(_.elem.borrowImmut))
   ))
 
-def peekMut[T](self: resource.MutRef[List[T]]): Option[resource.MutRef[T]] =
+def peekMut[T](self: resource.MutRef[List[T]])(using resource.Context): Option[resource.MutRef[T]] =
   self.read(_.head.borrowMut.read(_ match
     case None          => None
     case Some(nodeBox) =>
@@ -50,11 +52,16 @@ def peekMut[T](self: resource.MutRef[List[T]]): Option[resource.MutRef[T]] =
       Some(nodeBox.borrowMut.read(_.elem.borrowMut))
   ))
 
-def isEmpty[T](self: resource.ImmutRef[List[T]]): Boolean =
+def isEmpty[T](self: resource.ImmutRef[List[T]])(using resource.Context): Boolean =
   self.read(_.head.borrowImmut.read(_.isEmpty))
 
-// One time iterator
-def intoIter[T](self: resource.Box[List[T]]): Iterator[resource.Box[T]] =
+/** One time iterator
+  *
+  * NOTE: The iterator gets the `resource.Context` while creation, and then use the *same* context
+  * when iterating. For now the assumption is that there is only one context in the program, but in
+  * overall, this my cause some bugs.
+  */
+def intoIter[T](self: resource.Box[List[T]])(using resource.Context): Iterator[resource.Box[T]] =
   new Iterator[resource.Box[T]] {
     // Move self to not be accessible
     val list = self.move()
@@ -63,8 +70,13 @@ def intoIter[T](self: resource.Box[List[T]]): Iterator[resource.Box[T]] =
       pop(list.borrowMut).getOrElse(throw new NoSuchElementException("next on empty iterator"))
   }
 
-// Immutable iterator
-def iter[T](self: resource.ImmutRef[List[T]]): Iterator[resource.ImmutRef[T]] =
+/** Immutable iterator
+  *
+  * NOTE: Same `resource.Context` problem as `intoIter`.
+  */
+def iter[T](
+    self: resource.ImmutRef[List[T]]
+)(using resource.Context): Iterator[resource.ImmutRef[T]] =
   new Iterator[resource.ImmutRef[T]] {
     private var current: Option[resource.ImmutRef[Node[T]]] = self.read(
       // NOTE: this could be borrowMut and nothing would have happened.
@@ -84,8 +96,13 @@ def iter[T](self: resource.ImmutRef[List[T]]): Iterator[resource.ImmutRef[T]] =
 
   }
 
-// Mutable iterator
-def iterMut[T](self: resource.MutRef[List[T]]): Iterator[resource.MutRef[T]] =
+/** Mutable iterator
+  *
+  * NOTE: Same `resource.Context` problem as `intoIter`.
+  */
+def iterMut[T](
+    self: resource.MutRef[List[T]]
+)(using resource.Context): Iterator[resource.MutRef[T]] =
   new Iterator[resource.MutRef[T]] {
     private var current: Option[resource.MutRef[Node[T]]] = self.read(
       // TODO: Should ban borrow muting while reading.

@@ -1,5 +1,7 @@
 class ResourceShouldWorkSuite extends munit.FunSuite:
   test("basics: borrow, mutate and read") {
+    given imem.resource.Context = new imem.resource.TemporaryContext
+
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
     val myVal = imem.resource.Box[BoxedInteger](BoxedInteger(42))
@@ -13,6 +15,8 @@ end ResourceShouldWorkSuite
 class ListShouldWorkSuite extends munit.FunSuite:
 
   test("basics: push and pop") {
+    given imem.resource.Context = new imem.resource.TemporaryContext
+
     val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
 
     val mutList = list.borrowMut
@@ -43,6 +47,8 @@ class ListShouldWorkSuite extends munit.FunSuite:
   }
 
   test("peek and peekMut") {
+    given imem.resource.Context = new imem.resource.TemporaryContext
+
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
     val list = imem.resource.Box[imem.List[BoxedInteger]](imem.List[BoxedInteger]())
@@ -66,6 +72,8 @@ class ListShouldWorkSuite extends munit.FunSuite:
   }
 
   test("into_iter: consuming iterator") {
+    given imem.resource.Context = new imem.resource.TemporaryContext
+
     val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
     imem.push(list.borrowMut, 2)
@@ -79,6 +87,8 @@ class ListShouldWorkSuite extends munit.FunSuite:
   }
 
   test("iter: non-consuming immutable iterator") {
+    given imem.resource.Context = new imem.resource.TemporaryContext
+
     val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
     imem.push(list.borrowMut, 2)
@@ -99,6 +109,8 @@ class ListShouldWorkSuite extends munit.FunSuite:
   }
 
   test("iter_mut: non-consuming mutable iterator") {
+    given imem.resource.Context = new imem.resource.TemporaryContext
+
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
     val list = imem.resource.Box[imem.List[BoxedInteger]](imem.List[BoxedInteger]())
