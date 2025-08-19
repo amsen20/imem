@@ -3,10 +3,11 @@ package imem.resource
 /** TODO: Maybe make it an enum, and implement the internals in the Box methods.
   */
 trait BoxImpl[T]:
-  def borrowImmut(using Context): ImmutRef[T] = ???
-  def borrowMut(using Context): MutRef[T] = ???
+  def borrowImmut(using Context): ImmutRef[T]
+  def borrowMut(using Context): MutRef[T]
 
-  def name: String = ???
+  def name: String
+  override def toString(): String
 
 case class Uninitialized[T]() extends BoxImpl[T]:
   override def borrowImmut(using Context): ImmutRef[T] = throw new IllegalStateException(
@@ -16,6 +17,7 @@ case class Uninitialized[T]() extends BoxImpl[T]:
     "Cannot borrow an uninitialized Box"
   )
   override def name: String = "Uninitialized"
+  override def toString(): String = "Uninitialized"
 end Uninitialized
 
 case class Live[T](val tag: InternalRef[T]#Tag, val internalRef: InternalRef[T]) extends BoxImpl[T]:
@@ -23,6 +25,8 @@ case class Live[T](val tag: InternalRef[T]#Tag, val internalRef: InternalRef[T])
     ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParent)
   override def borrowMut(using ctx: Context): MutRef[T] =
     MutRef(internalRef.newMut(tag), internalRef, ctx.getParent)
+  override def name: String = "Live"
+  override def toString(): String = s"Live(tag: ${tag}, internalRef: ${internalRef})"
 end Live
 
 case class Dropped[T]() extends BoxImpl[T]:
@@ -33,6 +37,7 @@ case class Dropped[T]() extends BoxImpl[T]:
     "Cannot borrow a dropped Box"
   )
   override def name: String = "Dropped"
+  override def toString(): String = "Dropped"
 end Dropped
 
 case class Box[T]():
@@ -93,6 +98,8 @@ case class Box[T]():
         throw new IllegalStateException("Cannot move an uninitialized Box")
       case Dropped() =>
         throw new IllegalStateException("Cannot move a dropped Box")
+
+  override def toString(): String = s"Box(${Impl})"
 end Box
 
 object Box:

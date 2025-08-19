@@ -10,4 +10,6 @@ class UnsafeRef[T](val value: T):
   /** TODO: Should be private, it is used for implementing moving
     */
   def unsafeGet(): T = value
+
+  override def toString(): String = s"UnsafeRef(${value})"
 end UnsafeRef

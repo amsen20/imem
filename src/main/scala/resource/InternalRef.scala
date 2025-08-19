@@ -121,6 +121,8 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
   def drop(): Unit =
     stack.borrows.popAll()
 
+  override def toString(): String = s"InternalRef(${unsafeRef})"
+
 end InternalRef
 
 object InternalRef:
