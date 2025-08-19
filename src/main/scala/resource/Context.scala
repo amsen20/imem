@@ -7,7 +7,12 @@ package imem.resource
   * NOTE: This is a temporary solution and will be removed/replaced throughout time.
   */
 trait Context:
+  def getParent: Option[Ref[?]]
+  def setParent(parent: Option[Ref[?]]): Unit
 end Context
 
-class TemporaryContext extends Context:
-end TemporaryContext
+class DefaultContext extends Context:
+  private var parent: Option[Ref[?]] = None
+  override def getParent: Option[Ref[?]] = parent
+  override def setParent(newParent: Option[Ref[?]]): Unit = parent = newParent
+end DefaultContext

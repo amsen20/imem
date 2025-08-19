@@ -46,7 +46,7 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
     * specific defined exception being thrown?
     */
   @throws(classOf[IllegalStateException])
-  def newMut(derived: InternalRef[T]#Tag): MutRef[T] =
+  def newMut(derived: InternalRef[T]#Tag): InternalRef[T]#Tag =
     useCheck(derived)
     currentTimeStamp += 1
     val newTag = Tag.Uniq(currentTimeStamp)
@@ -55,7 +55,7 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
     /** TODO: consider instead of passing a tag and this class to the reference, pass an
       * implementation of an interface that allows the reference to do the borrowing and accessing.
       */
-    MutRef(newTag, this)
+    newTag
 
   /** Rule (USE-1)
     *
@@ -76,12 +76,12 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
     * TODO: the same as `newMut`
     */
   @throws(classOf[IllegalStateException])
-  def newSharedRef(derived: InternalRef[T]#Tag): ImmutRef[T] =
+  def newSharedRef(derived: InternalRef[T]#Tag): InternalRef[T]#Tag =
     readCheck(derived)
     currentTimeStamp += 1
     val newTag = Tag.Shr(currentTimeStamp)
     stack.borrows.push(newTag)
-    ImmutRef(newTag, this)
+    newTag
 
   /** Rule (READ-1)
     *

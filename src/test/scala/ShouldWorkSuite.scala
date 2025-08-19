@@ -1,6 +1,6 @@
 class ResourceShouldWorkSuite extends munit.FunSuite:
   test("basics: borrow, mutate and read") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
@@ -15,7 +15,7 @@ end ResourceShouldWorkSuite
 class ListShouldWorkSuite extends munit.FunSuite:
 
   test("basics: push and pop") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
 
@@ -47,7 +47,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
   }
 
   test("peek and peekMut") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
@@ -72,7 +72,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
   }
 
   test("into_iter: consuming iterator") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
@@ -87,7 +87,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
   }
 
   test("iter: non-consuming immutable iterator") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
@@ -109,7 +109,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
   }
 
   test("iter_mut: non-consuming mutable iterator") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)

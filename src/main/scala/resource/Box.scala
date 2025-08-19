@@ -3,31 +3,35 @@ package imem.resource
 /** TODO: Maybe make it an enum, and implement the internals in the Box methods.
   */
 trait BoxImpl[T]:
-  def borrowImmut: ImmutRef[T] = ???
-  def borrowMut: MutRef[T] = ???
+  def borrowImmut(using Context): ImmutRef[T] = ???
+  def borrowMut(using Context): MutRef[T] = ???
 
   def name: String = ???
 
 case class Uninitialized[T]() extends BoxImpl[T]:
-  override def borrowImmut: ImmutRef[T] = throw new IllegalStateException(
+  override def borrowImmut(using Context): ImmutRef[T] = throw new IllegalStateException(
     "Cannot borrow an uninitialized Box"
   )
-  override def borrowMut: MutRef[T] = throw new IllegalStateException(
+  override def borrowMut(using Context): MutRef[T] = throw new IllegalStateException(
     "Cannot borrow an uninitialized Box"
   )
   override def name: String = "Uninitialized"
 end Uninitialized
 
 case class Live[T](val tag: InternalRef[T]#Tag, val internalRef: InternalRef[T]) extends BoxImpl[T]:
-  override def borrowImmut: ImmutRef[T] = internalRef.newSharedRef(tag)
-  override def borrowMut: MutRef[T] = internalRef.newMut(tag)
+  override def borrowImmut(using ctx: Context): ImmutRef[T] =
+    ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParent)
+  override def borrowMut(using ctx: Context): MutRef[T] =
+    MutRef(internalRef.newMut(tag), internalRef, ctx.getParent)
 end Live
 
 case class Dropped[T]() extends BoxImpl[T]:
-  override def borrowImmut: ImmutRef[T] = throw new IllegalStateException(
+  override def borrowImmut(using Context): ImmutRef[T] = throw new IllegalStateException(
     "Cannot borrow a dropped Box"
   )
-  override def borrowMut: MutRef[T] = throw new IllegalStateException("Cannot borrow a dropped Box")
+  override def borrowMut(using Context): MutRef[T] = throw new IllegalStateException(
+    "Cannot borrow a dropped Box"
+  )
   override def name: String = "Dropped"
 end Dropped
 
@@ -37,10 +41,10 @@ case class Box[T]():
   var Impl: BoxImpl[T] = Uninitialized()
 
   @throws(classOf[IllegalStateException])
-  def borrowImmut: ImmutRef[T] = Impl.borrowImmut
+  def borrowImmut(using Context): ImmutRef[T] = Impl.borrowImmut
 
   @throws(classOf[IllegalStateException])
-  def borrowMut: MutRef[T] = Impl.borrowMut
+  def borrowMut(using Context): MutRef[T] = Impl.borrowMut
 
   @throws(classOf[IllegalStateException])
   def set(value: T): Unit =

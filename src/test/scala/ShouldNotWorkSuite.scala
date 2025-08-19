@@ -1,7 +1,7 @@
 import scala.compiletime.ops.int
 class ResourceShouldNotWorkSuite extends munit.FunSuite {
   test("should not be able to call the Box default constructor") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     // TODO: Should not compile, should make the constructor private.
     // FIXME: Due to explained reason, it will evaluate fine.
@@ -11,7 +11,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("box should not be able to assigned to a variable") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     // TODO: A `Box` type should not be able to be assigned to a variable because it forces the user to use `Box`'s
     // methods to set and reset it. Using them we can keep track of the ownership state.
@@ -22,7 +22,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("should not be able to write to a reference, by reading it") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
@@ -37,7 +37,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("should not be able to escape a value through `read`/`write` methods of a reference") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
@@ -52,7 +52,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("should not be able to mutate, while reading it") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
@@ -66,7 +66,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("borrows should be invalidated after moving") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
@@ -87,16 +87,13 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
 class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to push while peeking immutably") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
 
-    // TODO: Although `res` is a immutable reference, there is no connection between `res` and `list`, meaning
-    // mutating `list` does not affect `res`. The connection should be established at least in runtime or compile-time.
     val res = imem.peek(list.borrowImmut)
 
-    // FIXME: Due to explained reason, it will evaluate fine.
     intercept[IllegalStateException] {
       imem.push(list.borrowMut, 2)
       res.get.read(_ => ()) // idle read
@@ -104,16 +101,13 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("should not be able to push while peeking mutably") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
 
-    // TODO: Although `res` is a mutable reference, there is no connection between `res` and `list`, meaning
-    // mutating `list` does not affect `res`. The connection should be established at in runtime or compile-time.
     val res = imem.peekMut(list.borrowMut)
 
-    // FIXME: Due to explained reason, it will evaluate fine.
     intercept[IllegalStateException] {
       imem.push(list.borrowMut, 2)
       res.get.read(_ => ()) // idle read
@@ -121,7 +115,7 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("should not be able to push/pop while iterating") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
@@ -136,7 +130,7 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("should not be able to peek list after it is consumed") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
@@ -151,7 +145,7 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
   }
 
   test("should not be able to re-consume list after it is consumed") {
-    given imem.resource.Context = new imem.resource.TemporaryContext
+    given imem.resource.Context = new imem.resource.DefaultContext
 
     val list = imem.resource.Box[imem.List[Int]](imem.List[Int]())
     imem.push(list.borrowMut, 1)
