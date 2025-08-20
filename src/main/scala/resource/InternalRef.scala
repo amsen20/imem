@@ -130,7 +130,6 @@ object InternalRef:
     val ref = new InternalRef(UnsafeRef(value))
     // TODO: make it cleaner, looks like a dirty way to create a new tag.
     val firstTag = ref.Tag.Uniq(ref.currentTimeStamp)
-    ref.currentTimeStamp += 1
     ref.stack.borrows.push(firstTag)
     (ref, firstTag)
 end InternalRef
