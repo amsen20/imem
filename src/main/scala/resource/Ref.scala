@@ -3,7 +3,7 @@ package imem.resource
 import scala.compiletime.ops.int
 
 trait Ref[T]:
-  val parent: Option[Ref[?]]
+  val parents: List[Ref[?]]
 
   def readCheck: Unit
   def writeCheck: Unit
@@ -11,57 +11,50 @@ trait Ref[T]:
 class ImmutRef[T](
     val tag: InternalRef[T]#Tag,
     val internalRef: InternalRef[T],
-    override val parent: Option[Ref[?]]
+    override val parents: List[Ref[?]]
 ) extends Ref[T]:
   def borrowImmut(using ctx: Context): ImmutRef[T] =
-    ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParent)
+    ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
 
   def read[S](readAction: T => S)(using ctx: Context): S =
-    readCheck
-    val currentParent = ctx.getParent
-    ctx.setParent(Some(this))
-    val res = internalRef.read(tag, readAction)
-    ctx.setParent(currentParent)
-    res
+    parents.foreach(_.readCheck)
+    ctx.pushParent(this)
+    try
+      internalRef.read(tag, readAction)
+    finally ctx.popParent()
 
   override def readCheck: Unit =
-    parent.map(_.readCheck)
     internalRef.readCheck(tag)
   override def writeCheck: Unit =
-    parent.map(_.writeCheck)
     internalRef.useCheck(tag)
 end ImmutRef
 
 class MutRef[T](
     val tag: InternalRef[T]#Tag,
     val internalRef: InternalRef[T],
-    override val parent: Option[Ref[?]]
+    override val parents: List[Ref[?]]
 ) extends Ref[T]:
   def borrowMut(using ctx: Context): MutRef[T] =
-    MutRef(internalRef.newMut(tag), internalRef, ctx.getParent)
+    MutRef(internalRef.newMut(tag), internalRef, ctx.getParents)
   def borrowImmut(using ctx: Context): ImmutRef[T] =
-    ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParent)
+    ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
 
   def read[S](readAction: T => S)(using ctx: Context): S =
-    readCheck
-    val currentParent = ctx.getParent
-    ctx.setParent(Some(this))
-    val res = internalRef.read(tag, readAction)
-    ctx.setParent(currentParent)
-    res
+    parents.foreach(_.readCheck)
+    ctx.pushParent(this)
+    try
+      internalRef.read(tag, readAction)
+    finally ctx.popParent()
 
   def write[S](writeAction: T => S)(using ctx: Context): S =
-    writeCheck
-    val currentParent = ctx.getParent
-    ctx.setParent(Some(this))
-    val res = internalRef.write(tag, writeAction)
-    ctx.setParent(currentParent)
-    res
+    parents.foreach(_.writeCheck)
+    ctx.pushParent(this)
+    try
+      internalRef.write(tag, writeAction)
+    finally ctx.popParent()
 
   override def readCheck: Unit =
-    parent.map(_.readCheck)
     internalRef.readCheck(tag)
   override def writeCheck: Unit =
-    parent.map(_.writeCheck)
     internalRef.useCheck(tag)
 end MutRef

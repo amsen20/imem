@@ -22,9 +22,9 @@ end Uninitialized
 
 case class Live[T](val tag: InternalRef[T]#Tag, val internalRef: InternalRef[T]) extends BoxImpl[T]:
   override def borrowImmut(using ctx: Context): ImmutRef[T] =
-    ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParent)
+    ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
   override def borrowMut(using ctx: Context): MutRef[T] =
-    MutRef(internalRef.newMut(tag), internalRef, ctx.getParent)
+    MutRef(internalRef.newMut(tag), internalRef, ctx.getParents)
   override def name: String = "Live"
   override def toString(): String = s"Live(tag: ${tag}, internalRef: ${internalRef})"
 end Live

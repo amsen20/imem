@@ -1,4 +1,5 @@
 import scala.compiletime.ops.int
+
 class ResourceShouldNotWorkSuite extends munit.FunSuite {
   test("should not be able to call the Box default constructor") {
     given imem.resource.Context = new imem.resource.DefaultContext
@@ -81,6 +82,26 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
     intercept[IllegalStateException] {
       immutRef.read(_ => ())
     }
+  }
+
+  test(
+    "should not be able to go around a reference connection with its owner by wrapping it up in another reference"
+  ) {
+    given imem.resource.Context = new imem.resource.DefaultContext
+
+    val main = imem.resource.Box[imem.resource.Box[Int]](imem.resource.Box[Int](1))
+    val dummy = imem.resource.Box[Int](2)
+
+    val ref1 = main.borrowMut
+    val dummyRef = dummy.borrowImmut
+
+    val ref2 = ref1.borrowImmut.read(inner => dummyRef.read(_ => inner.borrowImmut))
+
+    ref1.write(_ => ()) // should expire `ref2`
+    intercept[IllegalStateException] {
+      ref2.read(_ => ())
+    }
+    dummyRef.read(_ => ())
   }
 }
 
