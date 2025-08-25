@@ -1,7 +1,7 @@
-ThisBuild / scalaVersion := "3.6.3"
+ThisBuild / scalaVersion := "3.8.0-RC1-bin-20250822-658c8bd-NIGHTLY"
 
-// ! This should be fixed, it's a workaround for now.
-// ! Using add CompilerPlugin doesn't work.
+// WARN: This should be fixed, it's a workaround for now.
+// WARN: Using add CompilerPlugin doesn't work.
 val scinearPluginPath =
   "/home/amirhossein/.ivy2/local/ca.uwaterloo.plg/scinear-plugin_3/0.2.1-SNAPSHOT/jars/scinear-plugin_3.jar"
 
