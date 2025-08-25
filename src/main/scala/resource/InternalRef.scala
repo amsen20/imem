@@ -44,6 +44,8 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
     * be part of the return type annotation (e.g. `throws[Unit]`). Also, check if
     * `IllegalStateException` is the correct exception to throw in this case. Should a package
     * specific defined exception being thrown?
+    *
+    * TODO: Checkout `import language.experimental.saferExceptions`.
     */
   @throws(classOf[IllegalStateException])
   def newMut(derived: InternalRef[T]#Tag): InternalRef[T]#Tag =

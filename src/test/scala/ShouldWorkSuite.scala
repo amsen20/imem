@@ -67,7 +67,6 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
     assert(imem.peek(list.borrowImmut).map(_.read(_ == BoxedInteger(42))).getOrElse(false))
     assert(imem.pop(list.borrowMut).map(_.borrowMut.read(_ == BoxedInteger(42))).getOrElse(false))
-
     assert(imem.pop(list.borrowMut).map(_.borrowMut.read(_ == BoxedInteger(2))).getOrElse(false))
   }
 
