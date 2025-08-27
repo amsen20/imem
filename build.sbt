@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion := "3.8.0-RC1-bin-20250822-658c8bd-NIGHTLY"
+ThisBuild / scalaVersion := "3.6.3"
 
 // WARN: This should be fixed, it's a workaround for now.
 // WARN: Using add CompilerPlugin doesn't work.
@@ -13,8 +13,8 @@ lazy val root = project
     libraryDependencies := Seq(
       "org.scalameta" %% "munit" % "1.0.0" % Test,
       "ca.uwaterloo.plg" %% "scinear-lib" % "0.2.1-SNAPSHOT"
-    )
+    ),
     // scalacOptions += s"""-Xplugin:$scinearPluginPath"""
-    // scalacOptions += "-Xprint:cc",
+    // scalacOptions += "-Xprint:cc"
     // scalacOptions += "-Ycc-debug"
   )
