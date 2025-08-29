@@ -1,5 +1,7 @@
 package imem.resource
 
+import language.experimental.captureChecking
+
 /** TODO: Maybe make it an enum, and implement the internals in the Box methods.
   */
 trait BoxImpl[T]:

@@ -1,6 +1,6 @@
 package imem.resource
 
-import scala.compiletime.ops.int
+import language.experimental.captureChecking
 
 trait Ref[T]:
   val parents: List[Ref[?]]

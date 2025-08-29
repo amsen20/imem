@@ -1,6 +1,6 @@
 package imem.resource
 
-import scala.collection.mutable
+import language.experimental.captureChecking
 
 /** `Context` is used as a temporary approach to enforce some borrowing, ownership, and mutability
   * rules. The goal is to make these rules enforcements in compile-time but at first, we try to make

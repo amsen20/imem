@@ -1,3 +1,5 @@
+import language.experimental.captureChecking
+
 class ResourceShouldWorkSuite extends munit.FunSuite:
   test("basics: borrow, mutate and read") {
     given imem.resource.Context = new imem.resource.DefaultContext
@@ -119,7 +121,11 @@ class ListShouldWorkSuite extends munit.FunSuite:
     imem.push(list.borrowMut, BoxedInteger(3))
 
     // Use the mutable iterator to modify the elements in the list
-    imem.iterMut(list.borrowMut).foreach { elemRef =>
+    // NOTE: The reason that it's a manual `while` and not `foreach` is that we are using `imem.Iterator` here
+    // not `Iterator`.
+    val iter = imem.iterMut(list.borrowMut)
+    while (iter.hasNext) {
+      val elemRef = iter.next()
       elemRef.write(elem => elem.value = elem.value * 10)
     }
 

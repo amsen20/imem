@@ -1,5 +1,7 @@
 package imem.resource
 
+import language.experimental.captureChecking
+
 /** This class implemented the stacked borrows memory model mentioned in the paper in this link:
   * https://plv.mpi-sws.org/rustbelt/stacked-borrows/paper.pdf
   *

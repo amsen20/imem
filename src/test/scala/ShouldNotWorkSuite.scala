@@ -1,5 +1,7 @@
 import scala.compiletime.ops.int
 
+import language.experimental.captureChecking
+
 class ResourceShouldNotWorkSuite extends munit.FunSuite {
   test("should not be able to call the Box default constructor") {
     given imem.resource.Context = new imem.resource.DefaultContext

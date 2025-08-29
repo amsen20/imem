@@ -1,5 +1,7 @@
 package imem
 
+import language.experimental.captureChecking
+
 class List[T](val head: resource.Box[Link[T]] = resource.Box[Link[T]](None))
 
 type Link[T] = Option[resource.Box[Node[T]]]
@@ -69,6 +71,11 @@ def intoIter[T](self: resource.Box[List[T]])(using resource.Context): Iterator[r
     def next(): resource.Box[T] =
       pop(list.borrowMut).getOrElse(throw new NoSuchElementException("next on empty iterator"))
   }
+
+trait Iterator[+A]:
+
+  def hasNext: Boolean
+  def next(): A
 
 /** Immutable iterator
   *
