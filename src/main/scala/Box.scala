@@ -1,4 +1,4 @@
-package imem.resource
+package imem
 
 import language.experimental.captureChecking
 
