@@ -3,10 +3,11 @@ import language.experimental.captureChecking
 class ResourceShouldWorkSuite extends munit.FunSuite:
   test("basics: borrow, mutate and read") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val myVal = imem.Box[BoxedInteger](BoxedInteger(42))
+    val myVal = imem.Box.newFromBackground(BoxedInteger(42))
 
     assert(myVal.borrowImmut.read(_ == BoxedInteger(42)))
     myVal.borrowMut.write(_.value = 12)
@@ -18,8 +19,9 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
   test("basics: push and pop") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
-    val list = imem.Box[LinkedList[Int]](LinkedList[Int]())
+    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
 
     val mutList = list.borrowMut
 
@@ -50,10 +52,11 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
   test("peek and peekMut") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val list = imem.Box[LinkedList[BoxedInteger]](LinkedList[BoxedInteger]())
+    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[BoxedInteger])
     assertEquals(peek(list.borrowImmut), None)
     assertEquals(peekMut(list.borrowMut), None)
 
@@ -74,8 +77,9 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
   test("into_iter: consuming iterator") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
-    val list = imem.Box[LinkedList[Int]](LinkedList[Int]())
+    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
     push(list.borrowMut, 1)
     push(list.borrowMut, 2)
     push(list.borrowMut, 3)
@@ -89,8 +93,9 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
   test("iter: non-consuming immutable iterator") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
-    val list = imem.Box[LinkedList[Int]](LinkedList[Int]())
+    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
     push(list.borrowMut, 1)
     push(list.borrowMut, 2)
     push(list.borrowMut, 3)
@@ -111,10 +116,11 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
   test("iter_mut: non-consuming mutable iterator") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val list = imem.Box[LinkedList[BoxedInteger]](LinkedList[BoxedInteger]())
+    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[BoxedInteger])
 
     push(list.borrowMut, BoxedInteger(1))
     push(list.borrowMut, BoxedInteger(2))

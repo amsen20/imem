@@ -42,7 +42,10 @@ case class Dropped[T]() extends BoxImpl[T]:
   override def toString(): String = "Dropped"
 end Dropped
 
-case class Box[T]():
+case class Box[T, Owner^]():
+  /** Ensure `Box`captures the owner without storing it in a field.
+  */
+  self: Box[T, Owner]^{Owner} =>
 
   // TODO: Looks dirty for accessing the inner type. Should find a better way.
   var Impl: BoxImpl[T] = Uninitialized()
@@ -78,7 +81,7 @@ case class Box[T]():
         throw new IllegalStateException("Cannot drop an already dropped Box")
 
   @throws(classOf[IllegalStateException])
-  def swap(other: Box[T]): Unit =
+  def swap[OtherOwner^](other: Box[T, OtherOwner]): Unit =
     (this.Impl, other.Impl) match
       case (Live(tag1, ref1), Live(tag2, ref2)) =>
         this.Impl = Live(tag2, ref2)
@@ -89,10 +92,10 @@ case class Box[T]():
         )
 
   @throws(classOf[IllegalStateException])
-  def move(): Box[T] =
+  def move[NewOwner^](): Box[T, NewOwner] =
     Impl match
       case Live(_, ref) =>
-        val newBox = Box[T]()
+        val newBox = Box[T, NewOwner]()
         newBox.set(ref.unsafeGet())
         drop()
         newBox
@@ -105,8 +108,17 @@ case class Box[T]():
 end Box
 
 object Box:
-  def apply[T](value: T): Box[T] =
-    val ret = Box[T]()
+  def newFromBackground[T, Owner^](value: T)(using OwnerCarrier^{Owner}): Box[T, Owner] =
+    val ret = new Box[T, Owner]()
+    ret.set(value)
+    ret
+
+  /**
+    * TODO: Should make it private, then every time one wants to create a new `Box` has to somehow pass it a implicit
+    * owner.
+    */
+  def newExplicit[T, Owner^](value: T): Box[T, Owner] =
+    val ret = new Box[T, Owner]()
     ret.set(value)
     ret
 end Box

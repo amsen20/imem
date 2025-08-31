@@ -3,31 +3,34 @@ import language.experimental.captureChecking
 class ResourceShouldNotWorkSuite extends munit.FunSuite {
   test("should not be able to call the Box default constructor") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
     // TODO: Should not compile, should make the constructor private.
     // FIXME: Due to explained reason, it will evaluate fine.
     intercept[Exception] {
-      new imem.Box[Int]()
+      new imem.Box()
     }
   }
 
   test("box should not be able to assigned to a variable") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
     // TODO: A `Box` type should not be able to be assigned to a variable because it forces the user to use `Box`'s
     // methods to set and reset it. Using them we can keep track of the ownership state.
     // FIXME: Due to explained reason, it will evaluate fine.
     intercept[Exception] {
-      var myVal = imem.Box[Int](42)
+      var myVal = imem.Box.newExplicit[Int, {}](42)
     }
   }
 
   test("should not be able to write to a reference, by reading it") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val myVal = imem.Box[BoxedInteger](BoxedInteger(42))
+    val myVal = imem.Box.newFromBackground(BoxedInteger(42))
 
     // TODO: For now, there is no difference between, `read` and `write` methods. Both can mutate the value. This
     // Should be changed, at least in runtime or compile-time, mutation through `read`s should not be allowed.
@@ -39,10 +42,11 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to escape a value through `read`/`write` methods of a reference") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val myVal = imem.Box[BoxedInteger](BoxedInteger(42))
+    val myVal = imem.Box.newFromBackground(BoxedInteger(42))
 
     // TODO: For now, values can be leaked though `read` and `write` methods. This should be changed, at least in
     // runtime or compile-time.
@@ -54,10 +58,11 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to mutate, while reading it") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val myVal = imem.Box[BoxedInteger](BoxedInteger(42))
+    val myVal = imem.Box.newFromBackground(BoxedInteger(42))
 
     val immutRef = myVal.borrowImmut
     myVal.borrowMut.write(_.value = 12)
@@ -68,10 +73,11 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
 
   test("borrows should be invalidated after moving") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
     // A way to express a mutable integer.
     case class BoxedInteger(var value: Int)
-    val myVal = imem.Box[BoxedInteger](BoxedInteger(42));
+    val myVal = imem.Box.newFromBackground(BoxedInteger(42))
     val immutRef = myVal.borrowImmut
 
     // TODO: For now no moving runtime/compile time effect is defined, so the following line will have no effect in the
@@ -88,9 +94,10 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
     "should not be able to go around a reference connection with its owner by wrapping it up in another reference"
   ) {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
-    val main = imem.Box[imem.Box[Int]](imem.Box[Int](1))
-    val dummy = imem.Box[Int](2)
+    val main = imem.Box.newFromBackground(imem.Box.newFromBackground(1))
+    val dummy = imem.Box.newFromBackground(2)
 
     val ref1 = main.borrowMut
     val dummyRef = dummy.borrowImmut
@@ -108,18 +115,22 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
     "should invalidate every reference from a box after the box is out of scope"
   ) {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
     // FIXME: should not be able to compile this
-    def leakImmutRef(b: imem.Box[Int]^) =
-      b.borrowImmut
+    // TODO: For now, I don't know how to define it, so I comment it.
+    // def leakImmutRef(b: imem.Box[Int]^) =
+    // b.borrowImmut
     // NOTE: For now, intentionally fail this test.
     assert(false)
   }
 
   test("should invalidate a box owned by another box after the box is out of scope") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
     // FIXME: should not be able to compile this
-    def leakMutRef(outer: imem.Box[imem.Box[Int]]^) =
-      outer.borrowImmut.read(identity)
+    // TODO: For now, I don't know how to define it, so I comment it.
+    // def leakMutRef(outer: imem.Box[imem.Box[Int]]^) =
+    // outer.borrowImmut.read(identity)
     // NOTE: For now, intentionally fail this test.
     assert(false)
   }
@@ -129,8 +140,9 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to push while peeking immutably") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
-    val list = imem.Box[LinkedList[Int]](LinkedList[Int]())
+    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
     push(list.borrowMut, 1)
 
     val res = peek(list.borrowImmut)
@@ -143,8 +155,9 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to push while peeking mutably") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
-    val list = imem.Box[LinkedList[Int]](LinkedList[Int]())
+    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
     push(list.borrowMut, 1)
 
     val res = peekMut(list.borrowMut)
@@ -157,8 +170,9 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to push/pop while iterating") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
-    val list = imem.Box[LinkedList[Int]](LinkedList[Int]())
+    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
     push(list.borrowMut, 1)
     push(list.borrowMut, 2)
     push(list.borrowMut, 3)
@@ -172,8 +186,9 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to peek list after it is consumed") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
-    val list = imem.Box[LinkedList[Int]](LinkedList[Int]())
+    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
     push(list.borrowMut, 1)
     push(list.borrowMut, 2)
     push(list.borrowMut, 3)
@@ -187,8 +202,9 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to re-consume list after it is consumed") {
     given imem.Context = new imem.DefaultContext
+    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
 
-    val list = imem.Box[LinkedList[Int]](LinkedList[Int]())
+    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
     push(list.borrowMut, 1)
     push(list.borrowMut, 2)
     push(list.borrowMut, 3)
