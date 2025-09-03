@@ -8,17 +8,19 @@ trait Ref[T]:
   def readCheck: Unit
   def writeCheck: Unit
 
-class ImmutRef[T](
+class ImmutRef[T, Owner^](
     val tag: InternalRef[T]#Tag,
     val internalRef: InternalRef[T],
     override val parents: List[Ref[?]]
 ) extends Ref[T]:
-  def borrowImmut(using ctx: Context): ImmutRef[T] =
+  self: ImmutRef[T, Owner]^{Owner} =>
+
+  def borrowImmut(using ctx: Context): ImmutRef[T, Owner] =
     ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
 
   def read[S](readAction: T => S)(using ctx: Context): S =
     parents.foreach(_.readCheck)
-    ctx.pushParent(this)
+    ctx.pushParent(this.asInstanceOf[Ref[T]])
     try
       internalRef.read(tag, readAction)
     finally ctx.popParent()
@@ -29,26 +31,29 @@ class ImmutRef[T](
     internalRef.useCheck(tag)
 end ImmutRef
 
-class MutRef[T](
+class MutRef[T, Owner^](
     val tag: InternalRef[T]#Tag,
     val internalRef: InternalRef[T],
     override val parents: List[Ref[?]]
 ) extends Ref[T]:
-  def borrowMut(using ctx: Context): MutRef[T] =
+  self: MutRef[T, Owner]^{Owner} =>
+
+  def borrowMut(using ctx: Context): MutRef[T, {this}] =
     MutRef(internalRef.newMut(tag), internalRef, ctx.getParents)
-  def borrowImmut(using ctx: Context): ImmutRef[T] =
+  def borrowImmut(using ctx: Context): ImmutRef[T, {this}] =
     ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
 
   def read[S](readAction: T => S)(using ctx: Context): S =
     parents.foreach(_.readCheck)
-    ctx.pushParent(this)
+    // ?: Why should a `asInstanceOf` be necessary here?
+    ctx.pushParent(this.asInstanceOf[Ref[T]])
     try
       internalRef.read(tag, readAction)
     finally ctx.popParent()
 
   def write[S](writeAction: T => S)(using ctx: Context): S =
     parents.foreach(_.writeCheck)
-    ctx.pushParent(this)
+    ctx.pushParent(this.asInstanceOf[Ref[T]])
     try
       internalRef.write(tag, writeAction)
     finally ctx.popParent()
