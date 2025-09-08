@@ -5,17 +5,17 @@ import language.experimental.captureChecking
 /** TODO: Maybe make it an enum, and implement the internals in the Box methods.
   */
 trait BoxImpl[T, Owner^]:
-  def borrowImmut(using Context): ImmutRef[T, Owner]
-  def borrowMut(using Context): MutRef[T, Owner]
+  def borrowImmut[newOwner^ >: Owner](using Context): ImmutRef[T, newOwner]
+  def borrowMut[newOwner^ >: Owner](using Context): MutRef[T, newOwner]
 
   def name: String
   override def toString(): String
 
 case class Uninitialized[T, Owner^]() extends BoxImpl[T, Owner]:
-  override def borrowImmut(using Context): ImmutRef[T, Owner] = throw new IllegalStateException(
+  override def borrowImmut[newOwner^ >: Owner](using Context): ImmutRef[T, newOwner] = throw new IllegalStateException(
     "Cannot borrow an uninitialized Box"
   )
-  override def borrowMut(using Context): MutRef[T, Owner] = throw new IllegalStateException(
+  override def borrowMut[newOwner^ >: Owner](using Context): MutRef[T, newOwner] = throw new IllegalStateException(
     "Cannot borrow an uninitialized Box"
   )
   override def name: String = "Uninitialized"
@@ -23,19 +23,19 @@ case class Uninitialized[T, Owner^]() extends BoxImpl[T, Owner]:
 end Uninitialized
 
 case class Live[T, Owner^](val tag: InternalRef[T]#Tag, val internalRef: InternalRef[T]) extends BoxImpl[T, Owner]:
-  override def borrowImmut(using ctx: Context): ImmutRef[T, Owner] =
+  override def borrowImmut[newOwner^ >: Owner](using ctx: Context): ImmutRef[T, newOwner] =
     ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
-  override def borrowMut(using ctx: Context): MutRef[T, Owner] =
+  override def borrowMut[newOwner^ >: Owner](using ctx: Context): MutRef[T, newOwner] =
     MutRef(internalRef.newMut(tag), internalRef, ctx.getParents)
   override def name: String = "Live"
   override def toString(): String = s"Live(tag: ${tag}, internalRef: ${internalRef})"
 end Live
 
 case class Dropped[T, Owner^]() extends BoxImpl[T, Owner]:
-  override def borrowImmut(using Context): ImmutRef[T, Owner] = throw new IllegalStateException(
+  override def borrowImmut[newOwner^ >: Owner](using Context): ImmutRef[T, newOwner] = throw new IllegalStateException(
     "Cannot borrow a dropped Box"
   )
-  override def borrowMut(using Context): MutRef[T, Owner] = throw new IllegalStateException(
+  override def borrowMut[newOwner^ >: Owner](using Context): MutRef[T, newOwner] = throw new IllegalStateException(
     "Cannot borrow a dropped Box"
   )
   override def name: String = "Dropped"
@@ -51,10 +51,10 @@ case class Box[T, Owner^]():
   var Impl: BoxImpl[T, {this}] = Uninitialized()
 
   @throws(classOf[IllegalStateException])
-  def borrowImmut(using Context): ImmutRef[T, {this}] = Impl.borrowImmut
+  def borrowImmut[newOwner^ >: Owner](using Context): ImmutRef[T, newOwner] = Impl.borrowImmut
 
   @throws(classOf[IllegalStateException])
-  def borrowMut(using Context): MutRef[T, {this}] = Impl.borrowMut
+  def borrowMut[newOwner^ >: Owner](using Context): MutRef[T, newOwner] = Impl.borrowMut
 
   @throws(classOf[IllegalStateException])
   def set(value: T): Unit =

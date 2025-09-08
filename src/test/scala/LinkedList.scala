@@ -32,7 +32,7 @@ def pop[T, O1^, O2^, O3^](self: imem.MutRef[LinkedList[T, O1], O2])(using imem.C
   if isEmpty(self.borrowImmut) then None
   else
     val list = self.borrowMut
-    val currentHead = self.write(list =>
+    val currentHead = self.write((list: LinkedList[T, O1]) =>
       val currentHead = imem.Box.newExplicit[Link[T, O1], O2](None)
       // ?: I don't know how this will compile:
       // currentHead.swap(list.head)
@@ -45,25 +45,25 @@ def pop[T, O1^, O2^, O3^](self: imem.MutRef[LinkedList[T, O1], O2])(using imem.C
     currentHead.borrowMut.write(_ match {
       case None => None
       case Some(nodeBox) =>
-        self.write(list => nodeBox.borrowMut.write(_.next.swap(list.head)))
+        self.write(list => nodeBox.borrowMut.write((node: Node[T, O1]) => node.next.swap(list.head)))
         Some(nodeBox.borrowMut.write(_.elem.move()))
     })
 
-def peek[T, O1^, O2^](self: imem.ImmutRef[LinkedList[T, O1], O2])(using
+def peek[T, O1^, O2^ >: O1](self: imem.ImmutRef[LinkedList[T, O1], O2])(using
     imem.Context
 ): Option[imem.ImmutRef[T, O2]] =
-  self.read(_.head.borrowImmut.read(_ match
+  self.read(_.head.borrowImmut[O2].read(_ match
     case None => None
     case Some(nodeBox) =>
-      Some(nodeBox.borrowImmut.read(_.elem.borrowImmut))
+      Some(nodeBox.borrowImmut[O2].read(_.elem.borrowImmut[O2]))
   ))
 
-def peekMut[T, O1^, O2^](self: imem.MutRef[LinkedList[T, O1], O2])(using imem.Context): Option[imem.MutRef[T, O2]] =
-  self.read(_.head.borrowMut.read(_ match
+def peekMut[T, O1^, O2^ >: O1](self: imem.MutRef[LinkedList[T, O1], O2])(using imem.Context): Option[imem.MutRef[T, O2]] =
+  self.read(_.head.borrowMut[O2].read(_ match
     case None          => None
     case Some(nodeBox) =>
       // NOTE: it's wrong that it has mut borrow access to `elem` box through read method if nodeBox.
-      Some(nodeBox.borrowMut.read(_.elem.borrowMut))
+      Some(nodeBox.borrowMut[O2].read(_.elem.borrowMut[O2]))
   ))
 
 def isEmpty[T, O1^, O2^](self: imem.ImmutRef[LinkedList[T, O1], O2])(using imem.Context): Boolean =
@@ -99,16 +99,16 @@ def iterImmut[T, O1^, O2^ >: O1](
   new Iterator [imem.ImmutRef[T, O2]] {
     private var current: Option [imem.ImmutRef[Node[T, O1], O2]] = self.read(
       // NOTE: this could be borrowMut and nothing would have happened.
-      _.head.borrowImmut.read(_.map(_.borrowImmut))
+      (list: LinkedList[T, O1]) => list.head.borrowImmut.read(_.map(_.borrowImmut[O2]))
     )
     def hasNext: Boolean = current.isDefined
     def next(): imem.ImmutRef[T, O2] =
       current match
         case Some(nodeRef) =>
           nodeRef.read(node =>
-            current = node.next.borrowImmut.read(_.map(_.borrowImmut))
+            current = node.next.borrowImmut.read(_.map(_.borrowImmut[O2]))
             // NOTE: this could be borrowMut and nothing would have happened.
-            node.elem.borrowImmut
+            node.elem.borrowImmut[O2]
           )
         case None =>
           throw new NoSuchElementException("next on empty iterator")

@@ -15,7 +15,7 @@ class ImmutRef[T, Owner^](
 ) extends Ref[T]:
   self: ImmutRef[T, Owner]^{Owner} =>
 
-  def borrowImmut(using ctx: Context): ImmutRef[T, Owner] =
+  def borrowImmut[newOwner^ >: Owner](using ctx: Context): ImmutRef[T, newOwner] =
     ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
 
   def read[S](readAction: T => S)(using ctx: Context): S =
