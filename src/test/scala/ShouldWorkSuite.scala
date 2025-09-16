@@ -2,143 +2,136 @@ import language.experimental.captureChecking
 
 class ResourceShouldWorkSuite extends munit.FunSuite:
   test("basics: borrow, mutate and read") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
 
-    // A way to express a mutable integer.
-    case class BoxedInteger(var value: Int)
-    val myVal = imem.Box.newFromBackground(BoxedInteger(42))
+      // A way to express a mutable integer.
+      case class BoxedInteger(var value: Int)
+      val myVal = imem.Box.newFromBackground(BoxedInteger(42))(using ctx)
 
-    assert(myVal.borrowImmut.read(_ == BoxedInteger(42)))
-    myVal.borrowMut.write(_.value = 12)
-    assert(myVal.borrowImmut.read(_ == BoxedInteger(12)))
+      assert(myVal.borrowImmut(using ctx).read(_ == BoxedInteger(42))(using ctx))
+      myVal.borrowMut(using ctx).write(_.value = 12)(using ctx)
+      assert(myVal.borrowImmut(using ctx).read(_ == BoxedInteger(12))(using ctx))
   }
 end ResourceShouldWorkSuite
 
 class ListShouldWorkSuite extends munit.FunSuite:
 
   test("basics: push and pop") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
 
-    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
+      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
 
-    val mutList = list.borrowMut
+      val mutList = list.borrowMut[{ctx}, {ctx}](using ctx)
 
-    // Check empty list behaves right
-    assertEquals(pop(mutList), None)
+      // Check empty list behaves right
+      assertEquals(pop[Int, {ctx}, {ctx}, {ctx}](mutList)(using ctx), None)
 
-    // Populate list
-    push(mutList, 1)
-    push(mutList, 2)
-    push(mutList, 3)
+      // Populate list
+      push(mutList, 1)(using ctx)
+      push(mutList, 2)(using ctx)
+      push(mutList, 3)(using ctx)
 
-    // Check normal removal
-    assert(pop(mutList).map(_.borrowImmut.read(_ == 3)).getOrElse(false))
-    assert(pop(mutList).map(_.borrowImmut.read(_ == 2)).getOrElse(false))
+      // // Check normal removal
+      assert(pop(mutList)(using ctx).map(_.borrowImmut(using ctx).read(_ == 3)(using ctx)).getOrElse(false))
+      assert(pop(mutList)(using ctx).map(_.borrowImmut(using ctx).read(_ == 2)(using ctx)).getOrElse(false))
 
-    // Push some more just to make sure nothing's corrupted
-    push(mutList, 4)
-    push(mutList, 5)
+      // // Push some more just to make sure nothing's corrupted
+      push(mutList, 4)(using ctx)
+      push(mutList, 5)(using ctx)
 
-    // Check normal removal
-    assert(pop(mutList).map(_.borrowImmut.read(_ == 5)).getOrElse(false))
-    assert(pop(mutList).map(_.borrowImmut.read(_ == 4)).getOrElse(false))
+      // // Check normal removal
+      assert(pop(mutList)(using ctx).map(_.borrowImmut(using ctx).read(_ == 5)(using ctx)).getOrElse(false))
+      assert(pop(mutList)(using ctx).map(_.borrowImmut(using ctx).read(_ == 4)(using ctx)).getOrElse(false))
 
-    // Check exhaustion
-    assert(pop(mutList).map(_.borrowImmut.read(_ == 1)).getOrElse(false))
-    assert(pop(mutList).isEmpty)
+      // // Check exhaustion
+      assert(pop(mutList)(using ctx).map(_.borrowImmut(using ctx).read(_ == 1)(using ctx)).getOrElse(false))
+      assert(pop(mutList)(using ctx).isEmpty)
   }
 
   test("peek and peekMut") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
 
-    // A way to express a mutable integer.
-    case class BoxedInteger(var value: Int)
-    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[BoxedInteger])
-    assertEquals(peek(list.borrowImmut), None)
-    assertEquals(peekMut(list.borrowMut), None)
+      // A way to express a mutable integer.
+      case class BoxedInteger(var value: Int)
+      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[BoxedInteger](using ctx))(using ctx)
+      assertEquals(peek[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowImmut[{ctx}, {ctx}](using ctx))(using ctx), None)
+      assertEquals(peekMut[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowMut(using ctx))(using ctx), None)
 
-    push(list.borrowMut, BoxedInteger(1))
-    push(list.borrowMut, BoxedInteger(2))
-    push(list.borrowMut, BoxedInteger(3))
+      push(list.borrowMut(using ctx), BoxedInteger(1))(using ctx)
+      push(list.borrowMut(using ctx), BoxedInteger(2))(using ctx)
+      push(list.borrowMut(using ctx), BoxedInteger(3))(using ctx)
 
-    assert(peek(list.borrowImmut).map(_.read(_ == BoxedInteger(3))).getOrElse(false))
+      assert(peek[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx).map(_.read(_ == BoxedInteger(3))(using ctx)).getOrElse(false))
 
-    // Modify the value using the mutable reference from peekMut
+      // Modify the value using the mutable reference from peekMut
 
-    peekMut(list.borrowMut).foreach(ref => ref.write(_.value = 42))
+      peekMut[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowMut(using ctx))(using ctx).foreach(ref => ref.write(_.value = 42)(using ctx))
 
-    assert(peek(list.borrowImmut).map(_.read(_ == BoxedInteger(42))).getOrElse(false))
-    assert(pop(list.borrowMut).map(_.borrowMut.read(_ == BoxedInteger(42))).getOrElse(false))
-    assert(pop(list.borrowMut).map(_.borrowMut.read(_ == BoxedInteger(2))).getOrElse(false))
+      assert(peek[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx).map(_.read(_ == BoxedInteger(42))(using ctx)).getOrElse(false))
+      assert(pop(list.borrowMut(using ctx))(using ctx).map(_.borrowImmut(using ctx).read(_ == BoxedInteger(42))(using ctx)).getOrElse(false))
+      assert(pop(list.borrowMut(using ctx))(using ctx).map(_.borrowImmut(using ctx).read(_ == BoxedInteger(2))(using ctx)).getOrElse(false))
   }
 
   test("into_iter: consuming iterator") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
 
-    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
-    push(list.borrowMut, 1)
-    push(list.borrowMut, 2)
-    push(list.borrowMut, 3)
+      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
+      push(list.borrowMut(using ctx), 1)(using ctx)
+      push(list.borrowMut(using ctx), 2)(using ctx)
+      push(list.borrowMut(using ctx), 3)(using ctx)
 
-    val iter = intoIter(list)
-    assert(iter.next().borrowImmut.read(_ == 3))
-    assert(iter.next().borrowImmut.read(_ == 2))
-    assert(iter.next().borrowImmut.read(_ == 1))
-    assert(!iter.hasNext)
-  }
+      val iter = intoIter(list)(using ctx)
+      assert(iter.next().borrowImmut(using ctx).read(_ == 3)(using ctx))
+      assert(iter.next().borrowImmut(using ctx).read(_ == 2)(using ctx))
+      assert(iter.next().borrowImmut(using ctx).read(_ == 1)(using ctx))
+      assert(!iter.hasNext)
+    }
 
   test("iter: non-consuming immutable iterator") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
 
-    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
-    push(list.borrowMut, 1)
-    push(list.borrowMut, 2)
-    push(list.borrowMut, 3)
+      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
+      push(list.borrowMut(using ctx), 1)(using ctx)
+      push(list.borrowMut(using ctx), 2)(using ctx)
+      push(list.borrowMut(using ctx), 3)(using ctx)
 
-    val iter = iterImmut(list.borrowImmut)
-    assert(iter.next().read(_ == 3))
-    assert(iter.next().read(_ == 2))
+      val iter = iterImmut[Int, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx)
+      assert(iter.next().read(_ == 3)(using ctx))
+      assert(iter.next().read(_ == 2)(using ctx))
 
-    // Check that the original list is unchanged in the process
-    assert(peek(list.borrowImmut).map(_.read(_ == 3)).getOrElse(false))
+      // Check that the original list is unchanged in the process
+      assert(peek[Int, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx).map(_.read(_ == 3)(using ctx)).getOrElse(false))
 
-    assert(iter.next().read(_ == 1))
-    assert(!iter.hasNext)
+      assert(iter.next().read(_ == 1)(using ctx))
+      assert(!iter.hasNext)
 
-    // Check that the original list is unchanged
-    assert(peek(list.borrowImmut).map(_.read(_ == 3)).getOrElse(false))
+      // Check that the original list is unchanged
+      assert(peek[Int, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx).map(_.read(_ == 3)(using ctx)).getOrElse(false))
   }
 
   test("iter_mut: non-consuming mutable iterator") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
+      // A way to express a mutable integer.
+      case class BoxedInteger(var value: Int)
+      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[BoxedInteger](using ctx))(using ctx)
 
-    // A way to express a mutable integer.
-    case class BoxedInteger(var value: Int)
-    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[BoxedInteger])
+      push(list.borrowMut(using ctx), BoxedInteger(1))(using ctx)
+      push(list.borrowMut(using ctx), BoxedInteger(2))(using ctx)
+      push(list.borrowMut(using ctx), BoxedInteger(3))(using ctx)
 
-    push(list.borrowMut, BoxedInteger(1))
-    push(list.borrowMut, BoxedInteger(2))
-    push(list.borrowMut, BoxedInteger(3))
+      // Use the mutable iterator to modify the elements in the list
+      // NOTE: The reason that it's a manual `while` and not `foreach` is that we are using `imem.Iterator` here
+      // not `Iterator`.
+      val iter = iterMut[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowMut(using ctx))(using ctx)
+      while (iter.hasNext) {
+        val elemRef = iter.next()
+        elemRef.write(elem => elem.value = elem.value * 10)(using ctx)
+      }
 
-    // Use the mutable iterator to modify the elements in the list
-    // NOTE: The reason that it's a manual `while` and not `foreach` is that we are using `imem.Iterator` here
-    // not `Iterator`.
-    val iter = iterMut(list.borrowMut)
-    while (iter.hasNext) {
-      val elemRef = iter.next()
-      elemRef.write(elem => elem.value = elem.value * 10)
-    }
-
-    // Check that the list contains the new, modified values
-    assert(pop(list.borrowMut).map(_.borrowImmut.read(_ == BoxedInteger(30))).getOrElse(false))
-    assert(pop(list.borrowMut).map(_.borrowImmut.read(_ == BoxedInteger(20))).getOrElse(false))
-    assert(pop(list.borrowMut).map(_.borrowImmut.read(_ == BoxedInteger(10))).getOrElse(false))
-    assert(pop(list.borrowMut).isEmpty)
+      // Check that the list contains the new, modified values
+      assert(pop(list.borrowMut(using ctx))(using ctx).map(_.borrowImmut(using ctx).read(_ == BoxedInteger(30))(using ctx)).getOrElse(false))
+      assert(pop(list.borrowMut(using ctx))(using ctx).map(_.borrowImmut(using ctx).read(_ == BoxedInteger(20))(using ctx)).getOrElse(false))
+      assert(pop(list.borrowMut(using ctx))(using ctx).map(_.borrowImmut(using ctx).read(_ == BoxedInteger(10))(using ctx)).getOrElse(false))
+      assert(pop(list.borrowMut(using ctx))(using ctx).isEmpty)
   }
 end ListShouldWorkSuite

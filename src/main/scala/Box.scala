@@ -5,17 +5,17 @@ import language.experimental.captureChecking
 /** TODO: Maybe make it an enum, and implement the internals in the Box methods.
   */
 trait BoxImpl[T, Owner^]:
-  def borrowImmut[newOwner^ >: Owner](using Context): ImmutRef[T, newOwner]
-  def borrowMut[newOwner^ >: Owner](using Context): MutRef[T, newOwner]
+  def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner]
+  def borrowMut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): MutRef[T, newOwner]
 
   def name: String
   override def toString(): String
 
 case class Uninitialized[T, Owner^]() extends BoxImpl[T, Owner]:
-  override def borrowImmut[newOwner^ >: Owner](using Context): ImmutRef[T, newOwner] = throw new IllegalStateException(
+  override def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner] = throw new IllegalStateException(
     "Cannot borrow an uninitialized Box"
   )
-  override def borrowMut[newOwner^ >: Owner](using Context): MutRef[T, newOwner] = throw new IllegalStateException(
+  override def borrowMut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): MutRef[T, newOwner] = throw new IllegalStateException(
     "Cannot borrow an uninitialized Box"
   )
   override def name: String = "Uninitialized"
@@ -23,19 +23,19 @@ case class Uninitialized[T, Owner^]() extends BoxImpl[T, Owner]:
 end Uninitialized
 
 case class Live[T, Owner^](val tag: InternalRef[T]#Tag, val internalRef: InternalRef[T]) extends BoxImpl[T, Owner]:
-  override def borrowImmut[newOwner^ >: Owner](using ctx: Context): ImmutRef[T, newOwner] =
+  override def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner] =
     ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
-  override def borrowMut[newOwner^ >: Owner](using ctx: Context): MutRef[T, newOwner] =
+  override def borrowMut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): MutRef[T, newOwner] =
     MutRef(internalRef.newMut(tag), internalRef, ctx.getParents)
   override def name: String = "Live"
   override def toString(): String = s"Live(tag: ${tag}, internalRef: ${internalRef})"
 end Live
 
 case class Dropped[T, Owner^]() extends BoxImpl[T, Owner]:
-  override def borrowImmut[newOwner^ >: Owner](using Context): ImmutRef[T, newOwner] = throw new IllegalStateException(
+  override def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner] = throw new IllegalStateException(
     "Cannot borrow a dropped Box"
   )
-  override def borrowMut[newOwner^ >: Owner](using Context): MutRef[T, newOwner] = throw new IllegalStateException(
+  override def borrowMut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): MutRef[T, newOwner] = throw new IllegalStateException(
     "Cannot borrow a dropped Box"
   )
   override def name: String = "Dropped"
@@ -48,46 +48,46 @@ case class Box[T, Owner^]():
   self: Box[T, Owner]^{Owner} =>
 
   // TODO: Looks dirty for accessing the inner type. Should find a better way.
-  var Impl: BoxImpl[T, {this}] = Uninitialized()
+  var Impl: BoxImpl[T, Owner/* ?: {this} */] = Uninitialized()
 
   @throws(classOf[IllegalStateException])
-  def borrowImmut[newOwner^ >: Owner](using Context): ImmutRef[T, newOwner] = Impl.borrowImmut
+  def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner] = Impl.borrowImmut
 
   @throws(classOf[IllegalStateException])
-  def borrowMut[newOwner^ >: Owner](using Context): MutRef[T, newOwner] = Impl.borrowMut
+  def borrowMut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): MutRef[T, newOwner] = Impl.borrowMut
 
   @throws(classOf[IllegalStateException])
   def set(value: T): Unit =
     Impl match
-      // ?: why should I mentioned [T, {this}] every time?
-      // ?: Also, why is `asInstanceOf[BoxImpl[T, {this}]]` needed?
-      case Uninitialized[T, {this}]() =>
+      // ?: why should I mentioned [T, Owner] every time?
+      // ?: Also, why is `asInstanceOf[BoxImpl[T, Owner]]` needed?
+      case Uninitialized[T, Owner]() =>
         val (ref, tag) = InternalRef.newWithTag(value)
-        Impl = Live[T, {this}](tag, ref).asInstanceOf[BoxImpl[T, {this}]]
-      case Live[T, {this}](_, _) =>
+        Impl = Live[T, Owner](tag, ref).asInstanceOf[BoxImpl[T, Owner]]
+      case Live[T, Owner](_, _) =>
         drop()
         val (ref, tag) = InternalRef.newWithTag(value)
-        Impl = Live(tag, ref).asInstanceOf[BoxImpl[T, {this}]]
-      case Dropped[T, {this}]() =>
+        Impl = Live(tag, ref).asInstanceOf[BoxImpl[T, Owner]]
+      case Dropped[T, Owner]() =>
         throw new IllegalStateException("Cannot set a value to a dropped Box")
 
   @throws(classOf[IllegalStateException])
   def drop(): Unit =
     Impl match
-      case Uninitialized[T, {this}]() =>
+      case Uninitialized[T, Owner]() =>
         throw new IllegalStateException("Cannot drop an uninitialized Box")
-      case Live[T, {this}](_, ref) =>
+      case Live[T, Owner](_, ref) =>
         ref.drop()
         Impl = Dropped()
-      case Dropped[T, {this}]() =>
+      case Dropped[T, Owner]() =>
         throw new IllegalStateException("Cannot drop an already dropped Box")
 
   @throws(classOf[IllegalStateException])
-  def swap[OtherOwner^](other: Box[T, OtherOwner]^{OtherOwner}): Unit =
+  def swap[OtherOwner^](other: Box[T, OtherOwner]): Unit =
     (this.Impl, other.Impl) match
-      case (Live[T, {this}](tag1, ref1), Live[T, {other}](tag2, ref2)) =>
-        this.Impl = Live(tag2, ref2).asInstanceOf[BoxImpl[T, {this}]]
-        other.Impl = Live(tag1, ref1).asInstanceOf[BoxImpl[T, {other}]]
+      case (Live[T, Owner](tag1, ref1), Live[T, OtherOwner](tag2, ref2)) =>
+        this.Impl = Live(tag2, ref2).asInstanceOf[BoxImpl[T, Owner]]
+        other.Impl = Live(tag1, ref1).asInstanceOf[BoxImpl[T, OtherOwner]]
       case _ =>
         throw new IllegalStateException(
           s"Cannot swap a ${this.Impl.name} with a ${other.Impl.name}"
@@ -96,22 +96,22 @@ case class Box[T, Owner^]():
   @throws(classOf[IllegalStateException])
   def move[NewOwner^](): Box[T, NewOwner] =
     Impl match
-      case Live[T, {this}](_, ref) =>
+      case Live[T, Owner](_, ref) =>
         val newBox = Box[T, NewOwner]()
         newBox.set(ref.unsafeGet())
         drop()
         newBox
-      case Uninitialized[T, {this}]() =>
+      case Uninitialized[T, Owner]() =>
         throw new IllegalStateException("Cannot move an uninitialized Box")
-      case Dropped[T, {this}]() =>
+      case Dropped[T, Owner]() =>
         throw new IllegalStateException("Cannot move a dropped Box")
 
   override def toString(): String = s"Box(${Impl})"
 end Box
 
 object Box:
-  def newFromBackground[T, Owner^](value: T)(using OwnerCarrier^{Owner}): Box[T, Owner] =
-    val ret = new Box[T, Owner]()
+  def newFromBackground[T](value: T)(using ctx: Context^): Box[T, {ctx}]/*^{ctx}*/ =
+    val ret = new Box[T, {ctx}]()
     ret.set(value)
     ret
 

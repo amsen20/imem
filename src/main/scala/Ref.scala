@@ -15,14 +15,14 @@ class ImmutRef[T, Owner^](
 ) extends Ref[T]:
   self: ImmutRef[T, Owner]^{Owner} =>
 
-  def borrowImmut[newOwner^ >: Owner](using ctx: Context): ImmutRef[T, newOwner] =
+  def borrowImmut(using ctx: Context^): ImmutRef[T, {ctx, Owner}] =
     ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
 
-  def read[S](readAction: T => S)(using ctx: Context): S =
+  def read[S, ctxOwner^, U >: T](readAction: Context^{ctxOwner} ?=> U => S)(using ctx: Context^{ctxOwner}): S =
     parents.foreach(_.readCheck)
     ctx.pushParent(this.asInstanceOf[Ref[T]])
     try
-      internalRef.read(tag, readAction)
+      internalRef.read(tag, readAction(using ctx))
     finally ctx.popParent()
 
   override def readCheck: Unit =
@@ -38,24 +38,24 @@ class MutRef[T, Owner^](
 ) extends Ref[T]:
   self: MutRef[T, Owner]^{Owner} =>
 
-  def borrowMut(using ctx: Context): MutRef[T, {this}] =
+  def borrowMut(using ctx: Context^): MutRef[T, {ctx, Owner}] =
     MutRef(internalRef.newMut(tag), internalRef, ctx.getParents)
-  def borrowImmut(using ctx: Context): ImmutRef[T, {this}] =
+  def borrowImmut(using ctx: Context^): ImmutRef[T, {ctx, Owner}] =
     ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
 
-  def read[S](readAction: T => S)(using ctx: Context): S =
+  def read[S, ctxOwner^, U >: T](readAction: Context^{ctxOwner} ?=> U => S)(using ctx: Context^{ctxOwner}): S =
     parents.foreach(_.readCheck)
     // ?: Why should a `asInstanceOf` be necessary here?
     ctx.pushParent(this.asInstanceOf[Ref[T]])
     try
-      internalRef.read(tag, readAction)
+      internalRef.read(tag, readAction(using ctx))
     finally ctx.popParent()
 
-  def write[S](writeAction: T => S)(using ctx: Context): S =
+  def write[S, ctxOwner^, U >: T](writeAction: Context^{ctxOwner} ?=> U => S)(using ctx: Context^{ctxOwner}): S =
     parents.foreach(_.writeCheck)
     ctx.pushParent(this.asInstanceOf[Ref[T]])
     try
-      internalRef.write(tag, writeAction)
+      internalRef.write(tag, writeAction(using ctx))
     finally ctx.popParent()
 
   override def readCheck: Unit =

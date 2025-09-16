@@ -2,217 +2,194 @@ import language.experimental.captureChecking
 
 class ResourceShouldNotWorkSuite extends munit.FunSuite {
   test("should not be able to call the Box default constructor") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
-
-    // TODO: Should not compile, should make the constructor private.
-    // FIXME: Due to explained reason, it will evaluate fine.
-    intercept[Exception] {
-      new imem.Box()
-    }
+    imem.withOwnership: ctx =>
+      // TODO: Should not compile, should make the constructor private.
+      // FIXME: Due to explained reason, it will evaluate fine.
+      intercept[Exception] {
+        new imem.Box()
+      }
   }
 
-  test("box should not be able to assigned to a variable") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
-
-    // TODO: A `Box` type should not be able to be assigned to a variable because it forces the user to use `Box`'s
-    // methods to set and reset it. Using them we can keep track of the ownership state.
-    // FIXME: Due to explained reason, it will evaluate fine.
-    intercept[Exception] {
-      var myVal = imem.Box.newExplicit[Int, {}](42)
-    }
+  test("box should not be able assigned to a variable") {
+    imem.withOwnership: ctx =>
+      // TODO: A `Box` type should not be able to be assigned to a variable because it forces the user to use `Box`'s
+      // methods to set and reset it. Using them we can keep track of the ownership state.
+      // FIXME: Due to explained reason, it will evaluate fine.
+      intercept[Exception] {
+        var myVal = imem.Box.newExplicit[Int, {}](42)
+      }
   }
 
   test("should not be able to write to a reference, by reading it") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
+      // A way to express a mutable integer.
+      case class BoxedInteger(var value: Int)
+      val myVal = imem.Box.newFromBackground(BoxedInteger(42))(using ctx)
 
-    // A way to express a mutable integer.
-    case class BoxedInteger(var value: Int)
-    val myVal = imem.Box.newFromBackground(BoxedInteger(42))
-
-    // TODO: For now, there is no difference between, `read` and `write` methods. Both can mutate the value. This
-    // Should be changed, at least in runtime or compile-time, mutation through `read`s should not be allowed.
-    // FIXME: Due to explained reason, it will evaluate fine.
-    intercept[IllegalStateException] {
-      myVal.borrowImmut.read(v => v.value = 12)
-    }
+      // TODO: For now, there is no difference between, `read` and `write` methods. Both can mutate the value. This
+      // Should be changed, at least in runtime or compile-time, mutation through `read`s should not be allowed.
+      // FIXME: Due to explained reason, it will evaluate fine.
+      intercept[IllegalStateException] {
+        myVal.borrowImmut(using ctx).read(v => v.value = 12)(using ctx)
+      }
   }
 
   test("should not be able to escape a value through `read`/`write` methods of a reference") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
+      // A way to express a mutable integer.
+      case class BoxedInteger(var value: Int)
+      val myVal = imem.Box.newFromBackground(BoxedInteger(42))(using ctx)
 
-    // A way to express a mutable integer.
-    case class BoxedInteger(var value: Int)
-    val myVal = imem.Box.newFromBackground(BoxedInteger(42))
-
-    // TODO: For now, values can be leaked though `read` and `write` methods. This should be changed, at least in
-    // runtime or compile-time.
-    // FIXME: Due to explained reason, it will evaluate fine.
-    intercept[Exception] {
-      myVal.borrowImmut.read(v => v).value
-    }
+      // TODO: For now, values can be leaked though `read` and `write` methods. This should be changed, at least in
+      // runtime or compile-time.
+      // FIXME: Due to explained reason, it will evaluate fine.
+      intercept[Exception] {
+        myVal.borrowImmut(using ctx).read(v => v)(using ctx).value
+      }
   }
 
   test("should not be able to mutate, while reading it") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
+      // A way to express a mutable integer.
+      case class BoxedInteger(var value: Int)
+      val myVal = imem.Box.newFromBackground(BoxedInteger(42))(using ctx)
 
-    // A way to express a mutable integer.
-    case class BoxedInteger(var value: Int)
-    val myVal = imem.Box.newFromBackground(BoxedInteger(42))
-
-    val immutRef = myVal.borrowImmut
-    myVal.borrowMut.write(_.value = 12)
-    intercept[IllegalStateException] {
-      immutRef.read(_ => ())
-    }
+      val immutRef = myVal.borrowImmut[{ctx}, {ctx}](using ctx)
+      myVal.borrowMut(using ctx).write(_.value = 12)(using ctx)
+      intercept[IllegalStateException] {
+        immutRef.read(_ => ())(using ctx)
+      }
   }
 
   test("borrows should be invalidated after moving") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
+      // A way to express a mutable integer.
+      case class BoxedInteger(var value: Int)
+      val myVal = imem.Box.newFromBackground(BoxedInteger(42))(using ctx)
+      val immutRef = myVal.borrowImmut[{ctx}, {ctx}](using ctx)
 
-    // A way to express a mutable integer.
-    case class BoxedInteger(var value: Int)
-    val myVal = imem.Box.newFromBackground(BoxedInteger(42))
-    val immutRef = myVal.borrowImmut
+      // TODO: For now no moving runtime/compile time effect is defined, so the following line will have no effect in the
+      // stacked borrows. Should track moves in at least runtime or compile time.
+      val myOtherVal = myVal
 
-    // TODO: For now no moving runtime/compile time effect is defined, so the following line will have no effect in the
-    // stacked borrows. Should track moves in at least runtime or compile time.
-    val myOtherVal = myVal
-
-    // FIXME: Due to explained reason, it will evaluate fine.
-    intercept[IllegalStateException] {
-      immutRef.read(_ => ())
-    }
+      // FIXME: Due to explained reason, it will evaluate fine.
+      intercept[IllegalStateException] {
+        immutRef.read(_ => ())(using ctx)
+      }
   }
 
   test(
     "should not be able to go around a reference connection with its owner by wrapping it up in another reference"
   ) {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
+      val main = imem.Box.newFromBackground(imem.Box.newFromBackground(1)(using ctx))(using ctx)
+      val dummy = imem.Box.newFromBackground(2)(using ctx)
 
-    val main = imem.Box.newFromBackground(imem.Box.newFromBackground(1))
-    val dummy = imem.Box.newFromBackground(2)
+      val ref1 = main.borrowMut[{ctx}, {ctx}](using ctx)
+      val dummyRef = dummy.borrowImmut[{ctx}, {ctx}](using ctx)
 
-    val ref1 = main.borrowMut
-    val dummyRef = dummy.borrowImmut
+      val ref2 = ref1.borrowMut(using ctx).read[ imem.ImmutRef[Int, {ctx}], {ctx}, imem.Box[Int, {ctx}]](
+        (inner: imem.Box[Int, {ctx}]) => dummyRef.read(_ => inner.borrowImmut[{ctx}, {ctx}](using ctx))
+      )(using ctx) /* (inner => dummyRef.read(_ => (inner.borrowImmut)))*/
 
-    val ref2 = ref1.borrowImmut.read(inner => dummyRef.read(_ => inner.borrowImmut))
-
-    ref1.write(_ => ()) // should expire `ref2`
-    intercept[IllegalStateException] {
-      ref2.read(_ => ())
-    }
-    dummyRef.read(_ => ())
+      ref1.write(_ => ())(using ctx) // should expire `ref2`
+      intercept[IllegalStateException] {
+        ref2.read(_ => ())(using ctx)
+      }
+      dummyRef.read(_ => ())(using ctx)
   }
 
   test(
     "should invalidate every reference from a box after the box is out of scope"
   ) {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
-    // FIXME: should not be able to compile this
-    // TODO: For now, I don't know how to define it, so I comment it.
-    // def leakImmutRef(b: imem.Box[Int]^) =
-    // b.borrowImmut
-    // NOTE: For now, intentionally fail this test.
-    assert(false)
+    imem.withOwnership: ctx =>
+      // FIXME: should not be able to compile this
+      // TODO: For now, I don't know how to define it, so I comment it.
+      // def leakImmutRef(b: imem.Box[Int]^) =
+      // b.borrowImmut
+      // NOTE: For now, intentionally fail this test.
+      assert(false)
   }
 
   test("should invalidate a box owned by another box after the box is out of scope") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
-    // FIXME: should not be able to compile this
-    // TODO: For now, I don't know how to define it, so I comment it.
-    // def leakMutRef(outer: imem.Box[imem.Box[Int]]^) =
-    // outer.borrowImmut.read(identity)
-    // NOTE: For now, intentionally fail this test.
-    assert(false)
+    imem.withOwnership: ctx =>
+      // FIXME: should not be able to compile this
+      // TODO: For now, I don't know how to define it, so I comment it.
+      // def leakMutRef(outer: imem.Box[imem.Box[Int]]^) =
+      // outer.borrowImmut.read(identity)
+      // NOTE: For now, intentionally fail this test.
+      assert(false)
   }
 }
 
 class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to push while peeking immutably") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
+      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
+      push(list.borrowMut(using ctx), 1)(using ctx)
 
-    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
-    push(list.borrowMut, 1)
+      val res = peek[Int, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx)
 
-    val res = peek(list.borrowImmut)
-
-    intercept[IllegalStateException] {
-      push(list.borrowMut, 2)
-      res.get.read(_ => ()) // idle read
-    }
+      intercept[IllegalStateException] {
+        push(list.borrowMut(using ctx), 2)(using ctx)
+        res.get.read(_ => ())(using ctx) // idle read
+      }
+      ()
   }
 
   test("should not be able to push while peeking mutably") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
+      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
+      push(list.borrowMut(using ctx), 1)(using ctx)
 
-    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
-    push(list.borrowMut, 1)
+      val res = peekMut[Int, {ctx}, {ctx}, {ctx}](list.borrowMut(using ctx))(using ctx)
 
-    val res = peekMut(list.borrowMut)
-
-    intercept[IllegalStateException] {
-      push(list.borrowMut, 2)
-      res.get.read(_ => ()) // idle read
-    }
+      intercept[IllegalStateException] {
+        push(list.borrowMut(using ctx), 2)(using ctx)
+        res.get.read(_ => ())(using ctx) // idle read
+      }
   }
 
   test("should not be able to push/pop while iterating") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
+      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
+      push(list.borrowMut(using ctx), 1)(using ctx)
+      push(list.borrowMut(using ctx), 2)(using ctx)
+      push(list.borrowMut(using ctx), 3)(using ctx)
 
-    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
-    push(list.borrowMut, 1)
-    push(list.borrowMut, 2)
-    push(list.borrowMut, 3)
-
-    val iter = iterImmut(list.borrowImmut)
-    intercept[IllegalStateException] {
-      pop(list.borrowMut)
-      iter.next()
-    }
+      val iter = iterImmut[Int, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx)
+      intercept[IllegalStateException] {
+        pop(list.borrowMut(using ctx))(using ctx)
+        iter.next()
+      }
   }
 
   test("should not be able to peek list after it is consumed") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
+      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
+      push(list.borrowMut(using ctx), 1)(using ctx)
+      push(list.borrowMut(using ctx), 2)(using ctx)
+      push(list.borrowMut(using ctx), 3)(using ctx)
 
-    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
-    push(list.borrowMut, 1)
-    push(list.borrowMut, 2)
-    push(list.borrowMut, 3)
+      val iter = intoIter[Int, {ctx}](list)(using ctx)
 
-    val iter = intoIter(list)
-
-    intercept[IllegalStateException] {
-      peek(list.borrowImmut)
-    }
+      intercept[IllegalStateException] {
+        peek(list.borrowImmut(using ctx))(using ctx)
+      }
   }
 
   test("should not be able to re-consume list after it is consumed") {
-    given imem.Context = new imem.DefaultContext
-    given imem.OwnerCarrier = new imem.DefaultOwnerCarrier
+    imem.withOwnership: ctx =>
+      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
+      push(list.borrowMut(using ctx), 1)(using ctx)
+      push(list.borrowMut(using ctx), 2)(using ctx)
+      push(list.borrowMut(using ctx), 3)(using ctx)
 
-    val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int])
-    push(list.borrowMut, 1)
-    push(list.borrowMut, 2)
-    push(list.borrowMut, 3)
+      val iter = intoIter[Int, {ctx}](list)(using ctx)
 
-    val iter = intoIter(list)
-
-    intercept[IllegalStateException] {
-      intoIter(list)
-    }
+      intercept[IllegalStateException] {
+        intoIter(list)(using ctx)
+      }
   }
 }

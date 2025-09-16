@@ -12,6 +12,7 @@ lazy val root = project
     version := "0.1.0-SNAPSHOT",
     libraryDependencies += "org.scalameta" %% "munit" % "1.0.0" % Test,
     libraryDependencies += "ca.uwaterloo.plg" %% "scinear-lib" % "0.2.1-SNAPSHOT",
+    scalacOptions += s"-explain",
     // scalacOptions += s"""-Xplugin:$scinearPluginPath"""
     // scalacOptions += "-Xprint:cc"
     // scalacOptions += "-Ycc-debug"

@@ -23,3 +23,7 @@ class DefaultContext extends Context:
     case Nil       => throw new IllegalStateException("No parent to pop")
     case _ :: tail => parents = tail
 end DefaultContext
+
+def withOwnership[T](block: Context^ -> T): T =
+  val ctx = new imem.DefaultContext
+  block(ctx)
