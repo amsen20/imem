@@ -20,6 +20,12 @@ class Node[T, O1^](val elem: imem.Box[T, O1], val next: imem.Box[Link[T, O1], O1
   */
 
 // Implementation of List[T]
+def isEmptyList[T, O1^, O2^](self: imem.ImmutRef[LinkedList[T, O1], O2])(using ctx: imem.Context^): Boolean =
+  self.read[Boolean, {ctx}, LinkedList[T, O1]](
+    (newCtx: imem.Context^{ctx, O2}) ?=> (list: LinkedList[T, O1]) =>
+      list.head.borrowImmut[{newCtx}, {ctx, O2, O1}].read[Boolean, {newCtx}, Link[T, O1]]((head: Link[T, O1]) => head.isEmpty)
+  )
+
 def push[T, O1^, O2^](self: imem.MutRef[LinkedList[T, O1], O2], elem: T)(using imem.Context^{O2}): Unit =
   val newNode = Node(imem.Box.newExplicit[T, O1](elem), imem.Box.newExplicit[Link[T, O1], O1](None))
   if isEmptyList(self.borrowImmut) then self.write(list => list.head.set(Some(imem.Box.newExplicit(newNode))))
@@ -29,7 +35,7 @@ def push[T, O1^, O2^](self: imem.MutRef[LinkedList[T, O1], O2], elem: T)(using i
       list.head.set(Some(imem.Box.newExplicit[Node[T, O1], O1](newNode)))
     )
 
-def pop[T, O1^, O2^, O3^](self: imem.MutRef[LinkedList[T, O1], O2])(using imem.Context^): Option[imem.Box[T, O3]] =
+def pop[T, O1^, O2^, O3^ >: {O1, O2}](self: imem.MutRef[LinkedList[T, O1], O2])(using ctx: imem.Context^): Option[imem.Box[T, O3]] =
   if isEmptyList(self.borrowImmut) then None
   else
     val list = self.borrowMut
@@ -43,32 +49,29 @@ def pop[T, O1^, O2^, O3^](self: imem.MutRef[LinkedList[T, O1], O2])(using imem.C
 
     // NOTE: A lot of things can go (and might) go wrong here.
     // It's good to make a `ShouldNotWork` test out of each of them.
-    currentHead.borrowMut.write(_ match {
+    currentHead.borrowMut[{ctx}, {ctx, O2}].write(newCtx ?=> head => head match {
       case None => None
       case Some(nodeBox) =>
-        self.write(list => nodeBox.borrowMut.write((node: Node[T, O1]) => node.next.swap(list.head)))
-        Some(nodeBox.borrowMut.write(_.elem.move()))
+        self.write(newCtx ?=> list => nodeBox.borrowMut[{newCtx}, {ctx, O2, O1}].write((node: Node[T, O1]) => node.next.swap(list.head)))
+        Some(nodeBox.borrowMut[{newCtx}, {ctx, O2, O1}].write(_.elem.move()))
     })
 
 def peek[T, O1^, O2^, O3^ >: {O1, O2}](self: imem.ImmutRef[LinkedList[T, O1], O2])(using
     imem.Context^{O2}
 ): Option[imem.ImmutRef[T, O3]] =
-  self.read[Option[imem.ImmutRef[T, O3]], O2, LinkedList[T, O1]](list => list.head.borrowImmut[{O2}, O3].read[Option[imem.ImmutRef[T, O3]], {O2}, Link[T, O1]]((head: Link[T, O1]) => head match
+  self.read[Option[imem.ImmutRef[T, O3]], O2, LinkedList[T, O1]](list => list.head.borrowImmut[{O2}, O3].read[Option[imem.ImmutRef[T, O3]], {O2}, Link[T, O1]](newCtx ?=> (head: Link[T, O1]) => head match
     case None => None
     case Some(nodeBox) =>
-      Some(nodeBox.borrowImmut[{O2}, O3].read[imem.ImmutRef[T, O3], {O2}, Node[T, O1]]((node: Node[T, O1]) => node.elem.borrowImmut[{O2}, O3]))
+      Some(nodeBox.borrowImmut[{newCtx}, O3].read[imem.ImmutRef[T, O3], {newCtx}, Node[T, O1]](newCtx ?=> (node: Node[T, O1]) => node.elem.borrowImmut[{newCtx}, O3]))
   ))
 
 
-def peekMut[T, O1^, O2^, O3^ >: {O1, O2}](self: imem.MutRef[LinkedList[T, O1], O3])(using ctx: imem.Context^{O2}): Option[imem.MutRef[T, O3]] =
-  self.read[Option[imem.MutRef[T, O3]], O2, LinkedList[T, O1]](_.head.borrowMut.read[Option[imem.MutRef[T, O3]], {O2}, Link[T, O1]](_ match
+def peekMut[T, O1^, O2^, O3^ >: {O1, O2}](self: imem.MutRef[LinkedList[T, O1], O2])(using ctx: imem.Context^{O2}): Option[imem.MutRef[T, O3]] =
+  self.read[Option[imem.MutRef[T, O3]], {O2}, LinkedList[T, O1]](newCtx ?=> list => list.head.borrowMut[{newCtx}, {O3}].read[Option[imem.MutRef[T, O3]], {O2}, Link[T, O1]](newCtx ?=> node => node match
     case None => None
       case Some(nodeBox) =>
-        Some(nodeBox.borrowMut[{O2}, O3].read[imem.MutRef[T, O3], {O2}, Node[T, O1]]((node: Node[T, O1]) => node.elem.borrowMut[{O2}, O3]))
+        Some(nodeBox.borrowMut[{newCtx}, O3].read[imem.MutRef[T, O3], {newCtx}, Node[T, O1]](newCtx ?=> (node: Node[T, O1]) => node.elem.borrowMut[{newCtx}, O3]))
   ))
-
-def isEmptyList[T, O1^, O2^](self: imem.ImmutRef[LinkedList[T, O1], O2])(using imem.Context^): Boolean =
-  self.read(_.head.borrowImmut.read(_.isEmpty))
 
 /** One time iterator
   *
@@ -76,12 +79,12 @@ def isEmptyList[T, O1^, O2^](self: imem.ImmutRef[LinkedList[T, O1], O2])(using i
   * when iterating. For now the assumption is that there is only one context in the program, but in
   * overall, this my cause some bugs.
   */
-def intoIter[T, O1^](self: imem.Box[LinkedList[T, O1], O1])(using ctx: imem.Context^): Iterator[imem.Box[T, O1]]^{ctx} =
-  new Iterator[imem.Box[T, O1]] {
+def intoIter[T, O1^](self: imem.Box[LinkedList[T, O1], O1])(using ctx: imem.Context^): Iterator[imem.Box[T, {O1, ctx}]]^{ctx} =
+  new Iterator[imem.Box[T, {O1, ctx}]] {
     // Move self to not be accessible
     val list = self.move()
     def hasNext: Boolean = !isEmptyList(list.borrowImmut)
-    def next(): imem.Box[T, O1] =
+    def next(): imem.Box[T, {O1, ctx}] =
       pop(list.borrowMut).getOrElse(throw new NoSuchElementException("next on empty iterator"))
   }
 
@@ -127,7 +130,7 @@ def iterMut[T, O1^, O2^, O3^ >: {O1, O2} <: {O1, O2}](
     private var current: Option [imem.MutRef[Node[T, O1], O3]] = self.read(
       // TODO: Should ban borrow muting while reading.
       // The question is will be automatically banned by exclusive capabilities?
-      _.head.borrowMut.read(_.map(_.borrowMut))
+      newCtx ?=> list => list.head.borrowMut[{newCtx}, O3].read(_.map(_.borrowMut))
     )
     def hasNext: Boolean = current.isDefined
     def next(): imem.MutRef[T, O3] =

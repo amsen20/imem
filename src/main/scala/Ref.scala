@@ -18,7 +18,7 @@ class ImmutRef[T, Owner^](
   def borrowImmut(using ctx: Context^): ImmutRef[T, {ctx, Owner}] =
     ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
 
-  def read[S, ctxOwner^, U >: T](readAction: Context^{ctxOwner} ?=> U => S)(using ctx: Context^{ctxOwner}): S =
+  def read[S, ctxOwner^, U >: T](readAction: Context^{ctxOwner, Owner} ?=> U => S)(using ctx: Context^{ctxOwner}): S =
     parents.foreach(_.readCheck)
     ctx.pushParent(this.asInstanceOf[Ref[T]])
     try
@@ -43,7 +43,7 @@ class MutRef[T, Owner^](
   def borrowImmut(using ctx: Context^): ImmutRef[T, {ctx, Owner}] =
     ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
 
-  def read[S, ctxOwner^, U >: T](readAction: Context^{ctxOwner} ?=> U => S)(using ctx: Context^{ctxOwner}): S =
+  def read[S, ctxOwner^, U >: T](readAction: Context^{ctxOwner, Owner} ?=> U => S)(using ctx: Context^{ctxOwner}): S =
     parents.foreach(_.readCheck)
     // ?: Why should a `asInstanceOf` be necessary here?
     ctx.pushParent(this.asInstanceOf[Ref[T]])
@@ -51,7 +51,7 @@ class MutRef[T, Owner^](
       internalRef.read(tag, readAction(using ctx))
     finally ctx.popParent()
 
-  def write[S, ctxOwner^, U >: T](writeAction: Context^{ctxOwner} ?=> U => S)(using ctx: Context^{ctxOwner}): S =
+  def write[S, ctxOwner^, U >: T](writeAction: Context^{ctxOwner, Owner} ?=> U => S)(using ctx: Context^{ctxOwner}): S =
     parents.foreach(_.writeCheck)
     ctx.pushParent(this.asInstanceOf[Ref[T]])
     try

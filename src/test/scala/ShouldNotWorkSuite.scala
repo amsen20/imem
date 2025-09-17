@@ -30,7 +30,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       // Should be changed, at least in runtime or compile-time, mutation through `read`s should not be allowed.
       // FIXME: Due to explained reason, it will evaluate fine.
       intercept[IllegalStateException] {
-        myVal.borrowImmut(using ctx).read(v => v.value = 12)(using ctx)
+        myVal.borrowImmut[{ctx}, {ctx}](using ctx).read(v => v.value = 12)(using ctx)
       }
   }
 
@@ -44,7 +44,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       // runtime or compile-time.
       // FIXME: Due to explained reason, it will evaluate fine.
       intercept[Exception] {
-        myVal.borrowImmut(using ctx).read(v => v)(using ctx).value
+        myVal.borrowImmut[{ctx}, {ctx}](using ctx).read(v => v)(using ctx).value
       }
   }
 
@@ -55,7 +55,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       val myVal = imem.Box.newFromBackground(BoxedInteger(42))(using ctx)
 
       val immutRef = myVal.borrowImmut[{ctx}, {ctx}](using ctx)
-      myVal.borrowMut(using ctx).write(_.value = 12)(using ctx)
+      myVal.borrowMut[{ctx}, {ctx}](using ctx).write(_.value = 12)(using ctx)
       intercept[IllegalStateException] {
         immutRef.read(_ => ())(using ctx)
       }
