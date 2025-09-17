@@ -6,6 +6,9 @@ class LinkedList[T, O1^](val head: imem.Box[Link[T, O1], O1] = imem.Box.newExpli
 object LinkedList:
   def newFromBackground[T](using ctx: imem.Context^): LinkedList[T, {ctx}] =
       new LinkedList[T, {ctx}]()
+
+  def newExplicit[T, O1^]: LinkedList[T, O1] =
+      new LinkedList[T, O1]()
 end LinkedList
 
 type Link[T, O1^] = Option[imem.Box[Node[T, O1], O1]]

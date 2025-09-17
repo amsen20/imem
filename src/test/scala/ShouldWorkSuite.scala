@@ -6,7 +6,8 @@ class ResourceShouldWorkSuite extends munit.FunSuite:
 
       // A way to express a mutable integer.
       case class BoxedInteger(var value: Int)
-      val myVal = imem.Box.newFromBackground(BoxedInteger(42))(using ctx)
+      val myVal = imem.Box.newSelfOwned[BoxedInteger](_ => BoxedInteger(42))
+      val immutRef = myVal.borrowImmut[{ctx}, {ctx, myVal}](using ctx)
 
       assert(myVal.borrowImmut(using ctx).read(_ == BoxedInteger(42))(using ctx))
       myVal.borrowMut(using ctx).write(_.value = 12)(using ctx)
@@ -19,6 +20,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
   test("basics: push and pop") {
     imem.withOwnership: ctx =>
 
+      // val list = imem.Box.newSelfOwned[LinkedList[Int, {list}]](owner => (LinkedList.newExplicit[Int, {owner}]))
       val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
 
       val mutList = list.borrowMut[{ctx}, {ctx}](using ctx)
@@ -31,19 +33,19 @@ class ListShouldWorkSuite extends munit.FunSuite:
       push(mutList, 2)(using ctx)
       push(mutList, 3)(using ctx)
 
-      // // Check normal removal
+      // Check normal removal
       assert(pop(mutList)(using ctx).map(_.borrowImmut(using ctx).read(_ == 3)(using ctx)).getOrElse(false))
       assert(pop(mutList)(using ctx).map(_.borrowImmut(using ctx).read(_ == 2)(using ctx)).getOrElse(false))
 
-      // // Push some more just to make sure nothing's corrupted
+      // Push some more just to make sure nothing's corrupted
       push(mutList, 4)(using ctx)
       push(mutList, 5)(using ctx)
 
-      // // Check normal removal
+      // Check normal removal
       assert(pop(mutList)(using ctx).map(_.borrowImmut(using ctx).read(_ == 5)(using ctx)).getOrElse(false))
       assert(pop(mutList)(using ctx).map(_.borrowImmut(using ctx).read(_ == 4)(using ctx)).getOrElse(false))
 
-      // // Check exhaustion
+      // Check exhaustion
       assert(pop(mutList)(using ctx).map(_.borrowImmut(using ctx).read(_ == 1)(using ctx)).getOrElse(false))
       assert(pop(mutList)(using ctx).isEmpty)
   }

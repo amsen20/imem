@@ -24,6 +24,6 @@ class DefaultContext extends Context:
     case _ :: tail => parents = tail
 end DefaultContext
 
-def withOwnership[T](block: Context^ -> T): T =
+def withOwnership[T](block: Context^ => T): T =
   val ctx = new imem.DefaultContext
   block(ctx)
