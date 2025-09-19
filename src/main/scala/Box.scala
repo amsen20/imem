@@ -4,14 +4,14 @@ import language.experimental.captureChecking
 
 /** TODO: Maybe make it an enum, and implement the internals in the Box methods.
   */
-trait BoxImpl[T, Owner^]:
+trait BoxImpl[T, +Owner^]:
   def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner]
   def borrowMut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): MutRef[T, newOwner]
 
   def name: String
   override def toString(): String
 
-case class Uninitialized[T, Owner^]() extends BoxImpl[T, Owner]:
+case class Uninitialized[T, +Owner^]() extends BoxImpl[T, Owner]:
   override def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner] = throw new IllegalStateException(
     "Cannot borrow an uninitialized Box"
   )
@@ -22,7 +22,7 @@ case class Uninitialized[T, Owner^]() extends BoxImpl[T, Owner]:
   override def toString(): String = "Uninitialized"
 end Uninitialized
 
-case class Live[T, Owner^](val tag: InternalRef[T]#Tag, val internalRef: InternalRef[T]) extends BoxImpl[T, Owner]:
+case class Live[T, +Owner^](val tag: InternalRef[T]#Tag, val internalRef: InternalRef[T]) extends BoxImpl[T, Owner]:
   override def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner] =
     ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
   override def borrowMut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): MutRef[T, newOwner] =
@@ -31,7 +31,7 @@ case class Live[T, Owner^](val tag: InternalRef[T]#Tag, val internalRef: Interna
   override def toString(): String = s"Live(tag: ${tag}, internalRef: ${internalRef})"
 end Live
 
-case class Dropped[T, Owner^]() extends BoxImpl[T, Owner]:
+case class Dropped[T, +Owner^]() extends BoxImpl[T, Owner]:
   override def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner] = throw new IllegalStateException(
     "Cannot borrow a dropped Box"
   )
@@ -42,7 +42,7 @@ case class Dropped[T, Owner^]() extends BoxImpl[T, Owner]:
   override def toString(): String = "Dropped"
 end Dropped
 
-case class Box[T, Owner^]():
+case class Box[T, +Owner^]():
   /** Ensure `Box`captures the owner without storing it in a field.
   */
   self: Box[T, Owner]^{Owner} =>

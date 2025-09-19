@@ -8,7 +8,7 @@ trait Ref[T]:
   def readCheck: Unit
   def writeCheck: Unit
 
-class ImmutRef[T, Owner^](
+class ImmutRef[T, +Owner^](
     val tag: InternalRef[T]#Tag,
     val internalRef: InternalRef[T],
     override val parents: List[Ref[?]]
@@ -31,7 +31,7 @@ class ImmutRef[T, Owner^](
     internalRef.useCheck(tag)
 end ImmutRef
 
-class MutRef[T, Owner^](
+class MutRef[T, +Owner^](
     val tag: InternalRef[T]#Tag,
     val internalRef: InternalRef[T],
     override val parents: List[Ref[?]]
