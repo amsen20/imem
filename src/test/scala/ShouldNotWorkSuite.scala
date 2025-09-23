@@ -120,6 +120,22 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       // NOTE: For now, intentionally fail this test.
       assert(false)
   }
+
+  test("should not be able to access self owned boxes in any way other than their holders") {
+    imem.withOwnership: ctx =>
+      val orig: imem.OwnerOrigin^ = new imem.OwnerOrigin
+      val orig2: imem.OwnerOrigin^ = new imem.OwnerOrigin
+      val listHolder = new imem.BoxHolder[orig.Key, imem.Box[Int, {orig}], {orig}](imem.Box.newExplicit[imem.Box[Int, {orig}], {orig}](imem.Box.newExplicit[Int, {orig}](42)))
+      // OK
+      val list = listHolder.getBox(orig.getKey())
+
+      /*
+      * FIXME: For now compile errors, cannot be tested in this unit, can be fixed by writing
+      * tests like the compiler plugin tests.
+      */
+      // val list2 = listHolder.getBox(orig2.getKey())
+      // val list3 = listHolder.getBox(new Object)
+  }
 }
 
 class ListShouldNotWorkSuite extends munit.FunSuite {
