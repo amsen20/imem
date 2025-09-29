@@ -21,7 +21,7 @@ class ImmutRef[T, +Owner^](
   def borrowImmut(using ctx: Context^): ImmutRef[T, {ctx, Owner}]^{ctx, Owner} =
     ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
 
-  def read[S, ctxOwner^, U >: T, OO^](readAction: Context^{ctxOwner, Owner} ?->{OO} U ->{OO} S)(using ctx: Context^{ctxOwner}): S =
+  def read[S, ctxOwner^, U >: T](readAction: Context^{ctxOwner, Owner} ?=> U => S)(using ctx: Context^{ctxOwner}): S =
     parents.foreach(_.readCheck)
     ctx.pushParent(this.asInstanceOf[Ref[T]])
     try

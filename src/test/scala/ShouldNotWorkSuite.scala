@@ -1,4 +1,5 @@
 import language.experimental.captureChecking
+import imem.ImmutRef
 
 class ResourceShouldNotWorkSuite extends munit.FunSuite {
   test("should not be able to call the Box default constructor") {
@@ -88,8 +89,8 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       val ref1 = main.borrowMut[{ctx}, {ctx}](using ctx)
       val dummyRef = dummy.borrowImmut[{ctx}, {ctx}](using ctx)
 
-      val ref2 = ref1.borrowMut(using ctx).read[ imem.ImmutRef[Int, {ctx}], {ctx}, imem.Box[Int, {ctx}]](
-        (inner: imem.Box[Int, {ctx}]) => dummyRef.read(_ => inner.borrowImmut[{ctx}, {ctx}](using ctx))
+      val ref2 = ref1.borrowMut(using ctx).read[ imem.ImmutRef[Int, {ctx}]^{ctx}, {ctx}, imem.Box[Int, {ctx}]^{ctx}](
+        (inner: imem.Box[Int, {ctx}]^{ctx}) => dummyRef.read(_ => inner.borrowImmut[{ctx}, {ctx}](using ctx))
       )(using ctx) /* (inner => dummyRef.read(_ => (inner.borrowImmut)))*/
 
       ref1.write(_ => ())(using ctx) // should expire `ref2`
@@ -119,6 +120,27 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       // outer.borrowImmut.read(identity)
       // NOTE: For now, intentionally fail this test.
       assert(false)
+  }
+
+  test("should not allow to use a ref after one of the boxes is out of scope") {
+    imem.withOwnership: ctx =>
+      def f(b1: imem.Box[Int, {}]^, b2: imem.Box[Int, {}]^): imem.ImmutRef[Int, {ctx, b1, b2}]^{ctx, b1, b2} =
+        imem.withOwnership: newCtx =>
+          b1.borrowImmut[{ctx}, {ctx, b1}](using ctx).read(
+            newCtx ?=> (v: Int) =>
+              b2.borrowImmut[{newCtx}, {newCtx, b2}]
+          )(using ctx)
+
+      val b1 = imem.Box.newSelfOwned[Int](_ => 1)
+      val b2 = imem.Box.newSelfOwned[Int](_ => 2)
+      f(b1, b2)
+
+      val ref = b1.borrowImmut[{ctx}, {ctx, b1}](using ctx).read(
+        newCtx ?=> (v: Int) =>
+          b2.borrowImmut[{newCtx}, {newCtx, b2}]
+          // ()
+      )(using ctx)
+      ()
   }
 }
 

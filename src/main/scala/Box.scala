@@ -42,7 +42,7 @@ case class Dropped[T, +Owner^]() extends BoxImpl[T, Owner]:
   override def toString(): String = "Dropped"
 end Dropped
 
-case class Box[T, +Owner^]():
+case class Box[T, @caps.use +Owner^]():
   /** Ensure `Box`captures the owner without storing it in a field.
   */
   // FIXME: For now, self types do not work for capture checking, to be specific, they work
@@ -86,7 +86,7 @@ case class Box[T, +Owner^]():
         throw new IllegalStateException("Cannot drop an already dropped Box")
 
   @throws(classOf[IllegalStateException])
-  def swap[OtherOwner^](other: Box[T, OtherOwner]^{OtherOwner}): Unit =
+  def swap[@caps.use OtherOwner^](other: Box[T, OtherOwner]^{OtherOwner}): Unit =
     (this.Impl, other.Impl) match
       case (Live[T, {Owner, this}](tag1, ref1), Live[T, OtherOwner](tag2, ref2)) =>
         this.Impl = Live(tag2, ref2).asInstanceOf[BoxImpl[T, {Owner, this}]]
