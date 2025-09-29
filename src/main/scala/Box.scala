@@ -42,6 +42,10 @@ case class Dropped[T, +Owner^]() extends BoxImpl[T, Owner]:
   override def toString(): String = "Dropped"
 end Dropped
 
+/**
+ * TODO: For now, `Owner` can be any capability, and it may open ways to exploits.
+ * Should restrict it to a specific type only.
+*/
 case class Box[T, @caps.use +Owner^]():
   /** Ensure `Box`captures the owner without storing it in a field.
   */
@@ -112,12 +116,16 @@ case class Box[T, @caps.use +Owner^]():
   override def toString(): String = s"Box(${Impl})"
 end Box
 
-object Box:
-  def newSelfOwned[T](value: Box[T, {}]^ => T): Box[T, {}]^ =
-    val ret: Box[T, {}]^ = new Box[T, {}]()
-    ret.set(value(ret))
-    ret
+class OwnerOrigin:
+  opaque type Key = Object
+  def getKey(): Key = new Object
+end OwnerOrigin
 
+class BoxHolder[KeyType, T, Owner^](val box: Box[T, {Owner}]^{Owner}):
+  def getBox(key: KeyType): Box[T, {Owner}]^{Owner} = box
+end BoxHolder
+
+object Box:
   def newFromBackground[T](value: T)(using ctx: Context^): Box[T, {ctx}]^{ctx} =
     val ret = new Box[T, {ctx}]()
     ret.set(value)

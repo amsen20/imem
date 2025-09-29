@@ -122,25 +122,20 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       assert(false)
   }
 
-  test("should not allow to use a ref after one of the boxes is out of scope") {
+  test("should not be able to access self owned boxes in any way other than their holders") {
     imem.withOwnership: ctx =>
-      def f(b1: imem.Box[Int, {}]^, b2: imem.Box[Int, {}]^): imem.ImmutRef[Int, {ctx, b1, b2}]^{ctx, b1, b2} =
-        imem.withOwnership: newCtx =>
-          b1.borrowImmut[{ctx}, {ctx, b1}](using ctx).read(
-            newCtx ?=> (v: Int) =>
-              b2.borrowImmut[{newCtx}, {newCtx, b2}]
-          )(using ctx)
+      val orig: imem.OwnerOrigin^ = new imem.OwnerOrigin
+      val orig2: imem.OwnerOrigin^ = new imem.OwnerOrigin
+      val listHolder = new imem.BoxHolder[orig.Key, imem.Box[Int, {orig}]^{orig}, {orig}](imem.Box.newExplicit[imem.Box[Int, {orig}]^{orig}, {orig}](imem.Box.newExplicit[Int, {orig}](42)))
+      // OK
+      val list = listHolder.getBox(orig.getKey())
 
-      val b1 = imem.Box.newSelfOwned[Int](_ => 1)
-      val b2 = imem.Box.newSelfOwned[Int](_ => 2)
-      f(b1, b2)
-
-      val ref = b1.borrowImmut[{ctx}, {ctx, b1}](using ctx).read(
-        newCtx ?=> (v: Int) =>
-          b2.borrowImmut[{newCtx}, {newCtx, b2}]
-          // ()
-      )(using ctx)
-      ()
+      /*
+      * FIXME: For now compile errors, cannot be tested in this unit, can be fixed by writing
+      * tests like the compiler plugin tests.
+      */
+      // val list2 = listHolder.getBox(orig2.getKey())
+      // val list3 = listHolder.getBox(new Object)
   }
 }
 

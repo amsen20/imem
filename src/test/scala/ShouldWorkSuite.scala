@@ -6,12 +6,14 @@ class ResourceShouldWorkSuite extends munit.FunSuite:
 
       // A way to express a mutable integer.
       case class BoxedInteger(var value: Int)
-      val myVal = imem.Box.newSelfOwned[BoxedInteger](_ => BoxedInteger(42))
-      val immutRef = myVal.borrowImmut[{ctx}, {ctx, myVal}](using ctx)
+      val orig: imem.OwnerOrigin^ = new imem.OwnerOrigin
+      val valueHolder = new imem.BoxHolder[orig.Key, BoxedInteger, {orig}](imem.Box.newExplicit[BoxedInteger, {orig}](BoxedInteger(42)))
+      val valueBox = valueHolder.getBox(orig.getKey())
+      val immutRef = valueBox.borrowImmut[{ctx}, {ctx, orig}](using ctx)
 
-      assert(myVal.borrowImmut[{ctx}, {ctx, myVal}](using ctx).read(_ == BoxedInteger(42))(using ctx))
-      myVal.borrowMut[{ctx}, {ctx, myVal}](using ctx).write(_.value = 12)(using ctx)
-      assert(myVal.borrowImmut[{ctx}, {ctx, myVal}](using ctx).read(_ == BoxedInteger(12))(using ctx))
+      assert(valueBox.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == BoxedInteger(42))(using ctx))
+      valueBox.borrowMut[{ctx}, {ctx, orig}](using ctx).write(_.value = 12)(using ctx)
+      assert(valueBox.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == BoxedInteger(12))(using ctx))
   }
 end ResourceShouldWorkSuite
 
@@ -20,13 +22,14 @@ class ListShouldWorkSuite extends munit.FunSuite:
   test("basics: push and pop") {
     imem.withOwnership: ctx =>
 
-      // val list = imem.Box.newSelfOwned[LinkedList[Int, {list}]](owner => (LinkedList.newExplicit[Int, {owner}]))
-      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
+      val orig: imem.OwnerOrigin^ = new imem.OwnerOrigin
+      val listHolder = new imem.BoxHolder[orig.Key, LinkedList[Int, {orig}]^{orig}, {orig}](imem.Box.newExplicit[LinkedList[Int, {orig}]^{orig}, {orig}](LinkedList.newExplicit[Int, {orig}]))
+      val list = listHolder.getBox(orig.getKey())
 
-      val mutList = list.borrowMut[{ctx}, {ctx}](using ctx)
+      val mutList = list.borrowMut[{ctx}, {ctx, orig}](using ctx)
 
       // Check empty list behaves right
-      assertEquals(pop[Int, {ctx}, {ctx}, {ctx}](mutList)(using ctx).isEmpty, true)
+      assertEquals(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).isEmpty, true)
 
       // Populate list
       push(mutList, 1)(using ctx)
@@ -34,20 +37,20 @@ class ListShouldWorkSuite extends munit.FunSuite:
       push(mutList, 3)(using ctx)
 
       // Check normal removal
-      assert(pop[Int, {ctx}, {ctx}, {ctx}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx}](using ctx).read(_ == 3)(using ctx)).getOrElse(false))
-      assert(pop[Int, {ctx}, {ctx}, {ctx}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx}](using ctx).read(_ == 2)(using ctx)).getOrElse(false))
+      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == 3)(using ctx)).getOrElse(false))
+      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == 2)(using ctx)).getOrElse(false))
 
       // Push some more just to make sure nothing's corrupted
-      push[Int, {ctx}, {ctx}](mutList, 4)(using ctx)
-      push[Int, {ctx}, {ctx}](mutList, 5)(using ctx)
+      push[Int, {orig}, {ctx, orig}](mutList, 4)(using ctx)
+      push[Int, {orig}, {ctx, orig}](mutList, 5)(using ctx)
 
       // Check normal removal
-      assert(pop[Int, {ctx}, {ctx}, {ctx}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx}](using ctx).read(_ == 5)(using ctx)).getOrElse(false))
-      assert(pop[Int, {ctx}, {ctx}, {ctx}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx}](using ctx).read(_ == 4)(using ctx)).getOrElse(false))
+      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == 5)(using ctx)).getOrElse(false))
+      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == 4)(using ctx)).getOrElse(false))
 
       // Check exhaustion
-      assert(pop[Int, {ctx}, {ctx}, {ctx}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx}](using ctx).read(_ == 1)(using ctx)).getOrElse(false))
-      assert(pop[Int, {ctx}, {ctx}, {ctx}](mutList)(using ctx).isEmpty)
+      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == 1)(using ctx)).getOrElse(false))
+      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).isEmpty)
   }
 
   test("peek and peekMut") {
