@@ -21,11 +21,11 @@ class Node[T, O1^](val elem: imem.Box[T, O1]^{O1}, val next: imem.Box[Link[T, O1
 
 // Implementation of List[T]
 def isEmptyList[T, @caps.use O1^, O2^](self: imem.ImmutRef[LinkedList[T, O1]^{O1}, O2]^{O2})(using ctx: imem.Context^): Boolean =
-  imem.read[LinkedList[T, O1]^{O1}, O2, Boolean, {ctx}, LinkedList[T, O1]^{O1}](
+  imem.read[LinkedList[T, O1]^{O1}, O2, Boolean, {ctx}](
     self,
     (newCtx: imem.Context^{ctx, O2}) ?=> (list: LinkedList[T, O1]^{O1}) =>
       val headRef = list.head.borrowImmut[{newCtx}, {ctx, O2, O1}]
-      imem.read[Link[T, O1], {ctx, O2, O1}, Boolean, {newCtx}, Link[T, O1]](headRef, (head: Link[T, O1]) => head.isEmpty)
+      imem.read[Link[T, O1], {ctx, O2, O1}, Boolean, {newCtx}](headRef, (head: Link[T, O1]) => head.isEmpty)
   )
 
 def push[T, @caps.use O1^, O2^](self: imem.MutRef[LinkedList[T, O1]^{O1}, O2]^{O2}, elem: T)(using imem.Context^{O2}): Unit =
@@ -57,11 +57,11 @@ def pop[T, @caps.use O1^, @caps.use O2^, O3^ >: {O1, O2}](self: imem.MutRef[Link
 def peek[T, @caps.use O1^, @caps.use O2^, @caps.use O3^ >: {O1, O2}](self: imem.ImmutRef[LinkedList[T, O1]^{O1}, O2]^{O2})(using
     imem.Context^{O2}
 ): Option[imem.ImmutRef[T, O3]^{O3}] =
-  imem.read[LinkedList[T, O1]^{O1}, O2, Option[imem.ImmutRef[T, O3]^{O3}], {O2}, LinkedList[T, O1]^{O1}](self, (list: LinkedList[T, O1]^{O1}) =>
+  imem.read[LinkedList[T, O1]^{O1}, O2, Option[imem.ImmutRef[T, O3]^{O3}], {O2}](self, (list: LinkedList[T, O1]^{O1}) =>
     val headRef = list.head.borrowImmut[{O2}, O3]
-    imem.read[Link[T, O1], O3, Option[imem.ImmutRef[T, O3]^{O3}], {O2}, Link[T, O1]](headRef, newCtx ?=> (head: Link[T, O1]) => head.map(nodeBox =>
+    imem.read[Link[T, O1], O3, Option[imem.ImmutRef[T, O3]^{O3}], {O2}](headRef, newCtx ?=> (head: Link[T, O1]) => head.map(nodeBox =>
         val nodeRef: imem.ImmutRef[Node[T, O1]^{O1}, {O3}]^{O3} = nodeBox.borrowImmut[{newCtx}, O3]
-        imem.read[Node[T, O1]^{O1}, O3, imem.ImmutRef[T, O3]^{O3}, {newCtx}, Node[T, O1]^{O1}](nodeRef, newCtx ?=> (node: Node[T, O1]^{O1}) => node.elem.borrowImmut[{newCtx}, O3])
+        imem.read[Node[T, O1]^{O1}, O3, imem.ImmutRef[T, O3]^{O3}, {newCtx}](nodeRef, newCtx ?=> (node: Node[T, O1]^{O1}) => node.elem.borrowImmut[{newCtx}, O3])
       )
     ))
 

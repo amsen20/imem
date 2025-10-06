@@ -13,7 +13,7 @@ class ImmutRef[T, +Owner^](
 def borrowImmut[T, Owner^](self: ImmutRef[T, Owner]^{Owner})(using ctx: Context^): ImmutRef[T, {ctx, Owner}]^{ctx, Owner} =
   ImmutRef(self.internalRef.newSharedRef(self.tag), self.internalRef, ctx.getParents)
 
-def read[T, Owner^, S, ctxOwner^, U >: T /* FIXME: Is this `U` needed anymore?, I maybe able to delete it */](self: ImmutRef[T, Owner]^{Owner}, readAction: Context^{ctxOwner, Owner} ?=> U => S)(using ctx: Context^{ctxOwner}): S =
+def read[T, Owner^, S, ctxOwner^](self: ImmutRef[T, Owner]^{Owner}, readAction: Context^{ctxOwner, Owner} ?=> T => S)(using ctx: Context^{ctxOwner}): S =
   self.parents.foreach(_ match
     case ref: ImmutRef[?, ?] => readCheck(ref)
     case ref: MutRef[?, ?] => ref.readCheck

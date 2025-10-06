@@ -69,7 +69,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
       assert(
         peek[BoxedInteger, {ctx}, {ctx}, {ctx}](
             list.borrowImmut[{ctx}, {ctx}](using ctx)
-          )(using ctx).map((item: imem.ImmutRef[BoxedInteger, {ctx}]^{ctx}) => imem.read[BoxedInteger, {ctx}, Boolean, {ctx}, BoxedInteger](item, newCtx ?=> data => data == BoxedInteger(3))(using ctx)).getOrElse(false)
+          )(using ctx).map((item: imem.ImmutRef[BoxedInteger, {ctx}]^{ctx}) => imem.read[BoxedInteger, {ctx}, Boolean, {ctx}](item, newCtx ?=> data => data == BoxedInteger(3))(using ctx)).getOrElse(false)
       )
 
       // Modify the value using the mutable reference from peekMut
