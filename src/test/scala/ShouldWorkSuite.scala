@@ -12,7 +12,7 @@ class ResourceShouldWorkSuite extends munit.FunSuite:
       val immutRef = valueBox.borrowImmut[{ctx}, {ctx, orig}](using ctx)
 
       assert(imem.readBox(valueBox, _ == BoxedInteger(42))(using ctx))
-      valueBox.borrowMut[{ctx}, {ctx, orig}](using ctx).write(_.value = 12)(using ctx)
+      imem.writeBox(valueBox, _.value = 12)(using ctx)
       assert(imem.readBox(valueBox, _ == BoxedInteger(12))(using ctx))
   }
 end ResourceShouldWorkSuite
@@ -76,9 +76,9 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
       peekMut[BoxedInteger, {ctx}, {ctx}, {ctx}](
         list.borrowMut[{ctx}, {ctx}](using ctx)
-      )(using ctx).foreach((ref: imem.MutRef[BoxedInteger, {ctx}]^{ctx}) => ref.write(_.value = 42)(using ctx))
+      )(using ctx).foreach((ref: imem.MutRef[BoxedInteger, {ctx}]^{ctx}) => imem.write(ref, _.value = 42)(using ctx))
 
-      assert(peek[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx).map((item: imem.ImmutRef[BoxedInteger, {ctx}]^{ctx}) => imem.read(item, _ == BoxedInteger(42))(using ctx)).getOrElse(false))
+      assert(peek[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx).map((item: imem.ImmutRef[BoxedInteger, {ctx}]^{ctx}) => imem.read[BoxedInteger, {ctx}, Boolean, {ctx}](item, _ == BoxedInteger(42))(using ctx)).getOrElse(false))
       assert(pop[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowMut[{ctx}, {ctx}](using ctx))(using ctx).map(imem.readBox(_, _ == BoxedInteger(42))(using ctx)).getOrElse(false))
       assert(pop[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowMut[{ctx}, {ctx}](using ctx))(using ctx).map(imem.readBox(_, _ == BoxedInteger(2))(using ctx)).getOrElse(false))
   }

@@ -30,18 +30,18 @@ def isEmptyList[T, @caps.use O1^, O2^](self: imem.ImmutRef[LinkedList[T, O1]^{O1
 
 def push[T, @caps.use O1^, O2^](self: imem.MutRef[LinkedList[T, O1]^{O1}, O2]^{O2}, elem: T)(using imem.Context^{O2}): Unit =
   val newNode = Node(imem.Box.newExplicit[T, O1](elem), imem.Box.newExplicit[Link[T, O1], O1](None))
-  if isEmptyList(self.borrowImmut) then self.write(list => list.head.set(Some(imem.Box.newExplicit(newNode))))
+  if isEmptyList(imem.borrowImmut(self)) then imem.write(self, list => list.head.set(Some(imem.Box.newExplicit(newNode))))
   else
-    self.write(list =>
+    imem.write(self, list =>
       newNode.next.swap(list.head)
       list.head.set(Some(imem.Box.newExplicit[Node[T, O1]^{O1}, O1](newNode)))
     )
 
 def pop[T, @caps.use O1^, @caps.use O2^, O3^ >: {O1, O2}](self: imem.MutRef[LinkedList[T, O1]^{O1}, O2]^{O2})(using ctx: imem.Context^): Option[imem.Box[T, O3]^{O3}] =
-  if isEmptyList(self.borrowImmut) then None
+  if isEmptyList(imem.borrowImmut(self)) then None
   else
-    val list = self.borrowMut
-    val currentHead = self.write((list: LinkedList[T, O1]^{O1}) =>
+    val list = imem.borrowMut(self)
+    val currentHead = imem.write(self, (list: LinkedList[T, O1]^{O1}) =>
       val currentHead = imem.Box.newExplicit[Link[T, O1], O2](None)
       currentHead.swap(list.head)
       currentHead
@@ -49,9 +49,9 @@ def pop[T, @caps.use O1^, @caps.use O2^, O3^ >: {O1, O2}](self: imem.MutRef[Link
 
     // NOTE: A lot of things can go (and might) go wrong here.
     // It's good to make a `ShouldNotWork` test out of each of them.
-    currentHead.borrowMut[{ctx}, {ctx, O2}].write(newCtx ?=> (head: Link[T, O1]) => head.map(nodeBox => {
-      self.write(newCtx ?=> list => nodeBox.borrowMut[{newCtx}, {ctx, O2, O1}].write((node: Node[T, O1]^{O1}) => node.next.swap(list.head)))
-      nodeBox.borrowMut[{newCtx}, {ctx, O2, O1}].write(_.elem.move())
+    imem.writeBox(currentHead, newCtx ?=> (head: Link[T, O1]) => head.map(nodeBox => {
+      imem.write(self, newCtx ?=> list => imem.writeBox(nodeBox, (node: Node[T, O1]^{O1}) => node.next.swap(list.head)))
+      imem.writeBox(nodeBox, _.elem.move())
     }))
 
 def peek[T, @caps.use O1^, @caps.use O2^, @caps.use O3^ >: {O1, O2}](self: imem.ImmutRef[LinkedList[T, O1]^{O1}, O2]^{O2})(using
@@ -66,9 +66,11 @@ def peek[T, @caps.use O1^, @caps.use O2^, @caps.use O3^ >: {O1, O2}](self: imem.
     ))
 
 def peekMut[T, @caps.use O1^, O2^, @caps.use O3^ >: {O1, O2}](self: imem.MutRef[LinkedList[T, O1]^{O1}, O2]^{O2})(using ctx: imem.Context^{O2}): Option[imem.MutRef[T, O3]^{O3}] =
-  self.read[Option[imem.MutRef[T, O3]^{O3}], {O2}, LinkedList[T, O1]^{O1}]((list: LinkedList[T, O1]^{O1}) =>
-    list.head.borrowMut[{O2}, O3].read[Option[imem.MutRef[T, O3]^{O3}], {O2}, Link[T, O1]](newCtx ?=> (head: Link[T, O1]) =>
+  imem.write[LinkedList[T, O1]^{O1}, O2, Option[imem.MutRef[T, O3]^{O3}], {O2}](self, (list: LinkedList[T, O1]^{O1}) =>
+    val headRef = list.head.borrowMut[{O2}, O3]
+    imem.write[Link[T, O1], O3, Option[imem.MutRef[T, O3]^{O3}], {O2}](headRef, newCtx ?=> (head: Link[T, O1]) =>
       head.map(nodeBox =>
-        nodeBox.borrowMut[{newCtx}, O3].read[imem.MutRef[T, O3]^{O3}, {newCtx}, Node[T, O1]^{O1}](newCtx ?=> (node: Node[T, O1]^{O1}) => node.elem.borrowMut[{newCtx}, O3])
+        val nodeRef: imem.MutRef[Node[T, O1]^{O1}, {O3}]^{O3} = nodeBox.borrowMut[{newCtx}, O3]
+        imem.write[Node[T, O1]^{O1}, O3, imem.MutRef[T, O3]^{O3}, {newCtx}](nodeRef, newCtx ?=> (node: Node[T, O1]^{O1}) => node.elem.borrowMut[{newCtx}, O3])
       )
   ))
