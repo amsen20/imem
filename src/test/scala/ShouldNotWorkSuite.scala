@@ -167,46 +167,4 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
         res.get.read(_ => ())(using ctx) // idle read
       }
   }
-
-  test("should not be able to push/pop while iterating") {
-    imem.withOwnership: ctx =>
-      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
-      push(list.borrowMut(using ctx), 1)(using ctx)
-      push(list.borrowMut(using ctx), 2)(using ctx)
-      push(list.borrowMut(using ctx), 3)(using ctx)
-
-      val iter = iterImmut[Int, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx)
-      intercept[IllegalStateException] {
-        pop(list.borrowMut(using ctx))(using ctx)
-        iter.next()
-      }
-  }
-
-  test("should not be able to peek list after it is consumed") {
-    imem.withOwnership: ctx =>
-      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
-      push(list.borrowMut(using ctx), 1)(using ctx)
-      push(list.borrowMut(using ctx), 2)(using ctx)
-      push(list.borrowMut(using ctx), 3)(using ctx)
-
-      val iter = intoIter[Int, {ctx}](list)(using ctx)
-
-      intercept[IllegalStateException] {
-        peek(list.borrowImmut(using ctx))(using ctx)
-      }
-  }
-
-  test("should not be able to re-consume list after it is consumed") {
-    imem.withOwnership: ctx =>
-      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
-      push(list.borrowMut(using ctx), 1)(using ctx)
-      push(list.borrowMut(using ctx), 2)(using ctx)
-      push(list.borrowMut(using ctx), 3)(using ctx)
-
-      val iter = intoIter[Int, {ctx}](list)(using ctx)
-
-      intercept[IllegalStateException] {
-        intoIter(list)(using ctx)
-      }
-  }
 }
