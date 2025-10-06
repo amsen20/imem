@@ -9,15 +9,15 @@ import language.experimental.captureChecking
   * NOTE: This is a temporary solution and will be removed/replaced throughout time.
   */
 trait Context:
-  def getParents: List[Ref[?]]
-  def pushParent(parent: Ref[?]): Unit
+  def getParents: List[Ref]
+  def pushParent(parent: Ref): Unit
   def popParent(): Unit
 end Context
 
 class DefaultContext extends Context:
-  private var parents: List[Ref[?]] = List.empty
-  override def getParents: List[Ref[?]] = parents.toList
-  override def pushParent(parent: Ref[?]): Unit =
+  private var parents: List[Ref] = List.empty
+  override def getParents: List[Ref] = parents.toList
+  override def pushParent(parent: Ref): Unit =
     parents = parent :: parents
   override def popParent(): Unit = parents match
     case Nil       => throw new IllegalStateException("No parent to pop")
