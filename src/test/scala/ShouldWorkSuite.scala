@@ -11,9 +11,9 @@ class ResourceShouldWorkSuite extends munit.FunSuite:
       val valueBox = valueHolder.getBox(orig.getKey())
       val immutRef = valueBox.borrowImmut[{ctx}, {ctx, orig}](using ctx)
 
-      assert(valueBox.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == BoxedInteger(42))(using ctx))
+      assert(imem.readBox(valueBox, _ == BoxedInteger(42))(using ctx))
       valueBox.borrowMut[{ctx}, {ctx, orig}](using ctx).write(_.value = 12)(using ctx)
-      assert(valueBox.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == BoxedInteger(12))(using ctx))
+      assert(imem.readBox(valueBox, _ == BoxedInteger(12))(using ctx))
   }
 end ResourceShouldWorkSuite
 
@@ -37,19 +37,19 @@ class ListShouldWorkSuite extends munit.FunSuite:
       push(mutList, 3)(using ctx)
 
       // Check normal removal
-      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == 3)(using ctx)).getOrElse(false))
-      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == 2)(using ctx)).getOrElse(false))
+      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 3)(using ctx)).getOrElse(false))
+      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 2)(using ctx)).getOrElse(false))
 
       // Push some more just to make sure nothing's corrupted
       push[Int, {orig}, {ctx, orig}](mutList, 4)(using ctx)
       push[Int, {orig}, {ctx, orig}](mutList, 5)(using ctx)
 
       // Check normal removal
-      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == 5)(using ctx)).getOrElse(false))
-      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == 4)(using ctx)).getOrElse(false))
+      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 5)(using ctx)).getOrElse(false))
+      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 4)(using ctx)).getOrElse(false))
 
       // Check exhaustion
-      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(_.borrowImmut[{ctx}, {ctx, orig}](using ctx).read(_ == 1)(using ctx)).getOrElse(false))
+      assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 1)(using ctx)).getOrElse(false))
       assert(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).isEmpty)
   }
 
@@ -69,7 +69,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
       assert(
         peek[BoxedInteger, {ctx}, {ctx}, {ctx}](
             list.borrowImmut[{ctx}, {ctx}](using ctx)
-          )(using ctx).map((item: imem.ImmutRef[BoxedInteger, {ctx}]^{ctx}) => item.read[Boolean, {ctx}, BoxedInteger](newCtx ?=> data => data == BoxedInteger(3))(using ctx)).getOrElse(false)
+          )(using ctx).map((item: imem.ImmutRef[BoxedInteger, {ctx}]^{ctx}) => imem.read[BoxedInteger, {ctx}, Boolean, {ctx}, BoxedInteger](item, newCtx ?=> data => data == BoxedInteger(3))(using ctx)).getOrElse(false)
       )
 
       // Modify the value using the mutable reference from peekMut
@@ -78,8 +78,8 @@ class ListShouldWorkSuite extends munit.FunSuite:
         list.borrowMut[{ctx}, {ctx}](using ctx)
       )(using ctx).foreach((ref: imem.MutRef[BoxedInteger, {ctx}]^{ctx}) => ref.write(_.value = 42)(using ctx))
 
-      assert(peek[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx).map((item: imem.ImmutRef[BoxedInteger, {ctx}]^{ctx}) => item.read(_ == BoxedInteger(42))(using ctx)).getOrElse(false))
-      assert(pop[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowMut[{ctx}, {ctx}](using ctx))(using ctx).map(_.borrowImmut[{ctx}, {ctx}](using ctx).read(_ == BoxedInteger(42))(using ctx)).getOrElse(false))
-      assert(pop[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowMut[{ctx}, {ctx}](using ctx))(using ctx).map(_.borrowImmut[{ctx}, {ctx}](using ctx).read(_ == BoxedInteger(2))(using ctx)).getOrElse(false))
+      assert(peek[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx).map((item: imem.ImmutRef[BoxedInteger, {ctx}]^{ctx}) => imem.read(item, _ == BoxedInteger(42))(using ctx)).getOrElse(false))
+      assert(pop[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowMut[{ctx}, {ctx}](using ctx))(using ctx).map(imem.readBox(_, _ == BoxedInteger(42))(using ctx)).getOrElse(false))
+      assert(pop[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowMut[{ctx}, {ctx}](using ctx))(using ctx).map(imem.readBox(_, _ == BoxedInteger(2))(using ctx)).getOrElse(false))
   }
 end ListShouldWorkSuite

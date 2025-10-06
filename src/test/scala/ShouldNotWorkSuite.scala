@@ -31,7 +31,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       // Should be changed, at least in runtime or compile-time, mutation through `read`s should not be allowed.
       // FIXME: Due to explained reason, it will evaluate fine.
       intercept[IllegalStateException] {
-        myVal.borrowImmut[{ctx}, {ctx}](using ctx).read(v => v.value = 12)(using ctx)
+        imem.readBox(myVal, v => v.value = 12)(using ctx)
       }
   }
 
@@ -45,7 +45,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       // runtime or compile-time.
       // FIXME: Due to explained reason, it will evaluate fine.
       intercept[Exception] {
-        myVal.borrowImmut[{ctx}, {ctx}](using ctx).read(v => v)(using ctx).value
+        imem.readBox(myVal, v => v)(using ctx).value
       }
   }
 
@@ -58,7 +58,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       val immutRef = myVal.borrowImmut[{ctx}, {ctx}](using ctx)
       myVal.borrowMut[{ctx}, {ctx}](using ctx).write(_.value = 12)(using ctx)
       intercept[IllegalStateException] {
-        immutRef.read(_ => ())(using ctx)
+        imem.read(immutRef, _ => ())(using ctx)
       }
   }
 
@@ -75,7 +75,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
 
       // FIXME: Due to explained reason, it will evaluate fine.
       intercept[IllegalStateException] {
-        immutRef.read(_ => ())(using ctx)
+        imem.read(immutRef, _ => ())(using ctx)
       }
   }
 
@@ -90,14 +90,15 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       val dummyRef = dummy.borrowImmut[{ctx}, {ctx}](using ctx)
 
       val ref2 = ref1.borrowMut(using ctx).read[ imem.ImmutRef[Int, {ctx}]^{ctx}, {ctx}, imem.Box[Int, {ctx}]^{ctx}](
-        (inner: imem.Box[Int, {ctx}]^{ctx}) => dummyRef.read(_ => inner.borrowImmut[{ctx}, {ctx}](using ctx))
+        (inner: imem.Box[Int, {ctx}]^{ctx}) =>
+          imem.read(dummyRef, _ => inner.borrowImmut[{ctx}, {ctx}](using ctx))
       )(using ctx) /* (inner => dummyRef.read(_ => (inner.borrowImmut)))*/
 
       ref1.write(_ => ())(using ctx) // should expire `ref2`
       intercept[IllegalStateException] {
-        ref2.read(_ => ())(using ctx)
+        imem.read(ref2, _ => ())(using ctx)
       }
-      dummyRef.read(_ => ())(using ctx)
+      imem.read(dummyRef, _ => ())(using ctx)
   }
 
   test(
@@ -150,7 +151,7 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
 
       intercept[IllegalStateException] {
         push(list.borrowMut(using ctx), 2)(using ctx)
-        res.get.read(_ => ())(using ctx) // idle read
+        imem.read(res.get, _ => ())(using ctx) // idle read
       }
       ()
   }

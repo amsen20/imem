@@ -125,6 +125,10 @@ class BoxHolder[KeyType, T, Owner^](val box: Box[T, {Owner}]^{Owner}):
   def getBox(key: KeyType): Box[T, {Owner}]^{Owner} = box
 end BoxHolder
 
+def readBox[T, Owner^, S, ctxOwner^, U >: T /* FIXME */](box: Box[T, Owner]^{Owner}, readAction: Context^{ctxOwner, Owner} ?=> U => S)(using ctx: Context^{ctxOwner}): S =
+  val ref = box.borrowImmut[{ctx}, {ctx, Owner}](using ctx)
+  read(ref, readAction(using ctx))(using ctx)
+
 object Box:
   def newFromBackground[T](value: T)(using ctx: Context^): Box[T, {ctx}]^{ctx} =
     val ret = new Box[T, {ctx}]()
