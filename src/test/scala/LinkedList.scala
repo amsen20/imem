@@ -47,36 +47,26 @@ def pop[T, @caps.use O1^, @caps.use O2^, O3^ >: {O1, O2}](self: imem.MutRef[Link
 
     // NOTE: A lot of things can go (and might) go wrong here.
     // It's good to make a `ShouldNotWork` test out of each of them.
-    currentHead.borrowMut[{ctx}, {ctx, O2}].write(newCtx ?=> (head: Link[T, O1]) => head match {
-      case None => None
-      // ?: `Some(nodeBox)` didn't work, the compiler tries to do:
-      // `x1.$asInstanceOf[Some[imem.Box[Node[T, O1]^{O1}, O1]]].value` instead of
-      // `x1.$asInstanceOf[Some[imem.Box[Node[T, O1]^{O1}, O1]^{O1}]].value`.
-      // TODO: Check if this is actually a bug, and report it to the Scala team.
-      case Some(_) =>
-        val nodeBox = head.get
-        self.write(newCtx ?=> list => nodeBox.borrowMut[{newCtx}, {ctx, O2, O1}].write((node: Node[T, O1]^{O1}) => node.next.swap(list.head)))
-        Some(nodeBox.borrowMut[{newCtx}, {ctx, O2, O1}].write(_.elem.move()))
-    })
+    currentHead.borrowMut[{ctx}, {ctx, O2}].write(newCtx ?=> (head: Link[T, O1]) => head.map(nodeBox => {
+      self.write(newCtx ?=> list => nodeBox.borrowMut[{newCtx}, {ctx, O2, O1}].write((node: Node[T, O1]^{O1}) => node.next.swap(list.head)))
+      nodeBox.borrowMut[{newCtx}, {ctx, O2, O1}].write(_.elem.move())
+    }))
 
 def peek[T, @caps.use O1^, @caps.use O2^, @caps.use O3^ >: {O1, O2}](self: imem.ImmutRef[LinkedList[T, O1]^{O1}, O2]^{O2})(using
     imem.Context^{O2}
 ): Option[imem.ImmutRef[T, O3]^{O3}] =
   self.read[Option[imem.ImmutRef[T, O3]^{O3}], {O2}, LinkedList[T, O1]^{O1}]((list: LinkedList[T, O1]^{O1}) =>
     list.head.borrowImmut[{O2}, O3].read[Option[imem.ImmutRef[T, O3]^{O3}], {O2}, Link[T, O1]](newCtx ?=>
-      (head: Link[T, O1]) => head match
-        case None => None
-        case Some(_) =>
-          val nodeBox = head.get
-          Some(nodeBox.borrowImmut[{newCtx}, O3].read[imem.ImmutRef[T, O3]^{O3}, {newCtx}, Node[T, O1]^{O1}](newCtx ?=> (node: Node[T, O1]^{O1}) => node.elem.borrowImmut[{newCtx}, O3]))
+      (head: Link[T, O1]) => head.map(nodeBox =>
+        nodeBox.borrowImmut[{newCtx}, O3].read[imem.ImmutRef[T, O3]^{O3}, {newCtx}, Node[T, O1]^{O1}](newCtx ?=> (node: Node[T, O1]^{O1}) => node.elem.borrowImmut[{newCtx}, O3])
+      )
   ))
 
 
-def peekMut[T, @caps.use O1^, O2^, O3^ >: {O1, O2}](self: imem.MutRef[LinkedList[T, O1]^{O1}, O2]^{O2})(using ctx: imem.Context^{O2}): Option[imem.MutRef[T, O3]^{O3}] =
+def peekMut[T, @caps.use O1^, O2^, @caps.use O3^ >: {O1, O2}](self: imem.MutRef[LinkedList[T, O1]^{O1}, O2]^{O2})(using ctx: imem.Context^{O2}): Option[imem.MutRef[T, O3]^{O3}] =
   self.read[Option[imem.MutRef[T, O3]^{O3}], {O2}, LinkedList[T, O1]^{O1}]((list: LinkedList[T, O1]^{O1}) =>
-    list.head.borrowMut[{O2}, O3].read[Option[imem.MutRef[T, O3]^{O3}], {O2}, Link[T, O1]](newCtx ?=> (head: Link[T, O1]) => head match
-      case None => None
-      case Some(_) =>
-        val nodeBox = head.get
-        Some(nodeBox.borrowMut[{newCtx}, O3].read[imem.MutRef[T, O3]^{O3}, {newCtx}, Node[T, O1]^{O1}](newCtx ?=> (node: Node[T, O1]^{O1}) => node.elem.borrowMut[{newCtx}, O3]))
+    list.head.borrowMut[{O2}, O3].read[Option[imem.MutRef[T, O3]^{O3}], {O2}, Link[T, O1]](newCtx ?=> (head: Link[T, O1]) =>
+      head.map(nodeBox =>
+        nodeBox.borrowMut[{newCtx}, O3].read[imem.MutRef[T, O3]^{O3}, {newCtx}, Node[T, O1]^{O1}](newCtx ?=> (node: Node[T, O1]^{O1}) => node.elem.borrowMut[{newCtx}, O3])
+      )
   ))

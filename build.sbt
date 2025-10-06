@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion := "3.7.2"
+ThisBuild / scalaVersion := "3.7.3"
 
 // WARN: This should be fixed, it's a workaround for now.
 // WARN: Using add CompilerPlugin doesn't work.
