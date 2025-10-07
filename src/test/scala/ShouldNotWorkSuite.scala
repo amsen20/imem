@@ -144,10 +144,10 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to push while peeking immutably") {
     imem.withOwnership: ctx =>
-      val list = imem.newBoxFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
+      val list = imem.newBoxFromBackground(newLinkedListFromBackground[Int](using ctx))(using ctx)
       push(imem.borrowMutBox(list)(using ctx), 1)(using ctx)
 
-      val res = peek[Int, {ctx}, {ctx}, {ctx}](imem.borrowImmutBox(list)(using ctx))(using ctx)
+      val res = peek[Int, {ctx}, {ctx}, {ctx}, {ctx}](imem.borrowImmutBox(list)(using ctx))(using ctx)
 
       intercept[IllegalStateException] {
         push(imem.borrowMutBox(list)(using ctx), 2)(using ctx)
@@ -158,10 +158,10 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to push while peeking mutably") {
     imem.withOwnership: ctx =>
-      val list = imem.newBoxFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
+      val list = imem.newBoxFromBackground(newLinkedListFromBackground[Int](using ctx))(using ctx)
       push(imem.borrowMutBox(list)(using ctx), 1)(using ctx)
 
-      val res = peekMut[Int, {ctx}, {ctx}, {ctx}](imem.borrowMutBox(list)(using ctx))(using ctx)
+      val res = peekMut[Int, {ctx}, {ctx}, {ctx}, {ctx}](imem.borrowMutBox(list)(using ctx))(using ctx)
 
       intercept[IllegalStateException] {
         push(imem.borrowMutBox(list)(using ctx), 2)(using ctx)
