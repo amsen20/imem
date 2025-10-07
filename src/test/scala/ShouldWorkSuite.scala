@@ -7,9 +7,9 @@ class ResourceShouldWorkSuite extends munit.FunSuite:
       // A way to express a mutable integer.
       case class BoxedInteger(var value: Int)
       val orig: imem.OwnerOrigin^ = new imem.OwnerOrigin
-      val valueHolder = new imem.BoxHolder[orig.Key, BoxedInteger, {orig}](imem.Box.newExplicit[BoxedInteger, {orig}](BoxedInteger(42)))
+      val valueHolder = new imem.BoxHolder[orig.Key, BoxedInteger, {orig}](imem.newBoxExplicit[BoxedInteger, {orig}](BoxedInteger(42)))
       val valueBox = valueHolder.getBox(orig.getKey())
-      val immutRef = valueBox.borrowImmut[{ctx}, {ctx, orig}](using ctx)
+      val immutRef = imem.borrowImmutBox[BoxedInteger, {orig}, {ctx}, {ctx, orig}](valueBox)(using ctx)
 
       assert(imem.readBox(valueBox, _ == BoxedInteger(42))(using ctx))
       imem.writeBox(valueBox, _.value = 12)(using ctx)
@@ -23,10 +23,10 @@ class ListShouldWorkSuite extends munit.FunSuite:
     imem.withOwnership: ctx =>
 
       val orig: imem.OwnerOrigin^ = new imem.OwnerOrigin
-      val listHolder = new imem.BoxHolder[orig.Key, LinkedList[Int, {orig}]^{orig}, {orig}](imem.Box.newExplicit[LinkedList[Int, {orig}]^{orig}, {orig}](LinkedList.newExplicit[Int, {orig}]))
+      val listHolder = new imem.BoxHolder[orig.Key, LinkedList[Int, {orig}]^{orig}, {orig}](imem.newBoxExplicit[LinkedList[Int, {orig}]^{orig}, {orig}](LinkedList.newExplicit[Int, {orig}]))
       val list = listHolder.getBox(orig.getKey())
 
-      val mutList = list.borrowMut[{ctx}, {ctx, orig}](using ctx)
+      val mutList = imem.borrowMutBox[LinkedList[Int, {orig}]^{orig}, {orig}, {ctx}, {ctx, orig}](list)(using ctx)
 
       // Check empty list behaves right
       assertEquals(pop[Int, {orig}, {ctx, orig}, {ctx, orig}](mutList)(using ctx).isEmpty, true)
@@ -58,28 +58,28 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
       // A way to express a mutable integer.
       case class BoxedInteger(var value: Int)
-      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[BoxedInteger](using ctx))(using ctx)
-      assertEquals(peek[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowImmut[{ctx}, {ctx}](using ctx))(using ctx).isEmpty, true)
-      assertEquals(peekMut[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowMut[{ctx}, {ctx}](using ctx))(using ctx).isEmpty, true)
+      val list = imem.newBoxFromBackground(LinkedList.newFromBackground[BoxedInteger](using ctx))(using ctx)
+      assertEquals(peek[BoxedInteger, {ctx}, {ctx}, {ctx}](imem.borrowImmutBox[LinkedList[BoxedInteger, {ctx}]^{ctx}, {ctx}, {ctx}, {ctx}](list)(using ctx))(using ctx).isEmpty, true)
+      assertEquals(peekMut[BoxedInteger, {ctx}, {ctx}, {ctx}](imem.borrowMutBox[LinkedList[BoxedInteger, {ctx}]^{ctx}, {ctx}, {ctx}, {ctx}](list)(using ctx))(using ctx).isEmpty, true)
 
-      push(list.borrowMut[{ctx}, {ctx}](using ctx), BoxedInteger(1))(using ctx)
-      push(list.borrowMut[{ctx}, {ctx}](using ctx), BoxedInteger(2))(using ctx)
-      push(list.borrowMut[{ctx}, {ctx}](using ctx), BoxedInteger(3))(using ctx)
+      push(imem.borrowMutBox[LinkedList[BoxedInteger, {ctx}]^{ctx}, {ctx}, {ctx}, {ctx}](list)(using ctx), BoxedInteger(1))(using ctx)
+      push(imem.borrowMutBox[LinkedList[BoxedInteger, {ctx}]^{ctx}, {ctx}, {ctx}, {ctx}](list)(using ctx), BoxedInteger(2))(using ctx)
+      push(imem.borrowMutBox[LinkedList[BoxedInteger, {ctx}]^{ctx}, {ctx}, {ctx}, {ctx}](list)(using ctx), BoxedInteger(3))(using ctx)
 
       assert(
         peek[BoxedInteger, {ctx}, {ctx}, {ctx}](
-            list.borrowImmut[{ctx}, {ctx}](using ctx)
+            imem.borrowImmutBox[LinkedList[BoxedInteger, {ctx}]^{ctx}, {ctx}, {ctx}, {ctx}](list)(using ctx)
           )(using ctx).map((item: imem.ImmutRef[BoxedInteger, {ctx}]^{ctx}) => imem.read[BoxedInteger, {ctx}, Boolean, {ctx}](item, newCtx ?=> data => data == BoxedInteger(3))(using ctx)).getOrElse(false)
       )
 
       // Modify the value using the mutable reference from peekMut
 
       peekMut[BoxedInteger, {ctx}, {ctx}, {ctx}](
-        list.borrowMut[{ctx}, {ctx}](using ctx)
+        imem.borrowMutBox[LinkedList[BoxedInteger, {ctx}]^{ctx}, {ctx}, {ctx}, {ctx}](list)(using ctx)
       )(using ctx).foreach((ref: imem.MutRef[BoxedInteger, {ctx}]^{ctx}) => imem.write(ref, _.value = 42)(using ctx))
 
-      assert(peek[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx).map((item: imem.ImmutRef[BoxedInteger, {ctx}]^{ctx}) => imem.read[BoxedInteger, {ctx}, Boolean, {ctx}](item, _ == BoxedInteger(42))(using ctx)).getOrElse(false))
-      assert(pop[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowMut[{ctx}, {ctx}](using ctx))(using ctx).map(imem.readBox(_, _ == BoxedInteger(42))(using ctx)).getOrElse(false))
-      assert(pop[BoxedInteger, {ctx}, {ctx}, {ctx}](list.borrowMut[{ctx}, {ctx}](using ctx))(using ctx).map(imem.readBox(_, _ == BoxedInteger(2))(using ctx)).getOrElse(false))
+      assert(peek[BoxedInteger, {ctx}, {ctx}, {ctx}](imem.borrowImmutBox[LinkedList[BoxedInteger, {ctx}]^{ctx}, {ctx}, {ctx}, {ctx}](list)(using ctx))(using ctx).map((item: imem.ImmutRef[BoxedInteger, {ctx}]^{ctx}) => imem.read[BoxedInteger, {ctx}, Boolean, {ctx}](item, _ == BoxedInteger(42))(using ctx)).getOrElse(false))
+      assert(pop[BoxedInteger, {ctx}, {ctx}, {ctx}](imem.borrowMutBox[LinkedList[BoxedInteger, {ctx}]^{ctx}, {ctx}, {ctx}, {ctx}](list)(using ctx))(using ctx).map(imem.readBox(_, _ == BoxedInteger(42))(using ctx)).getOrElse(false))
+      assert(pop[BoxedInteger, {ctx}, {ctx}, {ctx}](imem.borrowMutBox[LinkedList[BoxedInteger, {ctx}]^{ctx}, {ctx}, {ctx}, {ctx}](list)(using ctx))(using ctx).map(imem.readBox(_, _ == BoxedInteger(2))(using ctx)).getOrElse(false))
   }
 end ListShouldWorkSuite

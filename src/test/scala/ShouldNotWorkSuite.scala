@@ -1,5 +1,4 @@
 import language.experimental.captureChecking
-import imem.ImmutRef
 
 class ResourceShouldNotWorkSuite extends munit.FunSuite {
   test("should not be able to call the Box default constructor") {
@@ -17,7 +16,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       // methods to set and reset it. Using them we can keep track of the ownership state.
       // FIXME: Due to explained reason, it will evaluate fine.
       intercept[Exception] {
-        var myVal = imem.Box.newExplicit[Int, {}](42)
+        var myVal = imem.newBoxExplicit[Int, {}](42)
       }
   }
 
@@ -25,7 +24,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
     imem.withOwnership: ctx =>
       // A way to express a mutable integer.
       case class BoxedInteger(var value: Int)
-      val myVal = imem.Box.newFromBackground(BoxedInteger(42))(using ctx)
+      val myVal = imem.newBoxFromBackground(BoxedInteger(42))(using ctx)
 
       // TODO: For now, there is no difference between, `read` and `write` methods. Both can mutate the value. This
       // Should be changed, at least in runtime or compile-time, mutation through `read`s should not be allowed.
@@ -39,7 +38,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
     imem.withOwnership: ctx =>
       // A way to express a mutable integer.
       case class BoxedInteger(var value: Int)
-      val myVal = imem.Box.newFromBackground(BoxedInteger(42))(using ctx)
+      val myVal = imem.newBoxFromBackground(BoxedInteger(42))(using ctx)
 
       // TODO: For now, values can be leaked though `read` and `write` methods. This should be changed, at least in
       // runtime or compile-time.
@@ -53,9 +52,9 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
     imem.withOwnership: ctx =>
       // A way to express a mutable integer.
       case class BoxedInteger(var value: Int)
-      val myVal = imem.Box.newFromBackground(BoxedInteger(42))(using ctx)
+      val myVal = imem.newBoxFromBackground(BoxedInteger(42))(using ctx)
 
-      val immutRef = myVal.borrowImmut[{ctx}, {ctx}](using ctx)
+      val immutRef = imem.borrowImmutBox[BoxedInteger, {ctx}, {ctx}, {ctx}](myVal)(using ctx)
       imem.writeBox(myVal, _.value = 12)(using ctx)
       intercept[IllegalStateException] {
         imem.read(immutRef, _ => ())(using ctx)
@@ -66,8 +65,8 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
     imem.withOwnership: ctx =>
       // A way to express a mutable integer.
       case class BoxedInteger(var value: Int)
-      val myVal = imem.Box.newFromBackground(BoxedInteger(42))(using ctx)
-      val immutRef = myVal.borrowImmut[{ctx}, {ctx}](using ctx)
+      val myVal = imem.newBoxFromBackground(BoxedInteger(42))(using ctx)
+      val immutRef = imem.borrowImmutBox[BoxedInteger, {ctx}, {ctx}, {ctx}](myVal)(using ctx)
 
       // TODO: For now no moving runtime/compile time effect is defined, so the following line will have no effect in the
       // stacked borrows. Should track moves in at least runtime or compile time.
@@ -83,16 +82,16 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
     "should not be able to go around a reference connection with its owner by wrapping it up in another reference"
   ) {
     imem.withOwnership: ctx =>
-      val main = imem.Box.newFromBackground(imem.Box.newFromBackground(1)(using ctx))(using ctx)
-      val dummy = imem.Box.newFromBackground(2)(using ctx)
+      val main = imem.newBoxFromBackground(imem.newBoxFromBackground(1)(using ctx))(using ctx)
+      val dummy = imem.newBoxFromBackground(2)(using ctx)
 
-      val ref1 = main.borrowMut[{ctx}, {ctx}](using ctx)
-      val dummyRef = dummy.borrowImmut[{ctx}, {ctx}](using ctx)
+      val ref1 = imem.borrowMutBox[imem.Box[Int, {ctx}]^{ctx}, {ctx}, {ctx}, {ctx}](main)(using ctx)
+      val dummyRef = imem.borrowImmutBox[Int, {ctx}, {ctx}, {ctx}](dummy)(using ctx)
 
       val ref2 = imem.write[imem.Box[Int, {ctx}]^{ctx}, {ctx}, imem.ImmutRef[Int, {ctx}]^{ctx}, {ctx}](
         ref1,
         (inner: imem.Box[Int, {ctx}]^{ctx}) =>
-          imem.read(dummyRef, _ => inner.borrowImmut[{ctx}, {ctx}](using ctx))
+          imem.read(dummyRef, _ => imem.borrowImmutBox[Int, {ctx}, {ctx}, {ctx}](inner)(using ctx))
       )(using ctx) /* (inner => dummyRef.read(_ => (inner.borrowImmut)))*/
 
       imem.write(ref1, _ => ())(using ctx) // should expire `ref2`
@@ -128,7 +127,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
     imem.withOwnership: ctx =>
       val orig: imem.OwnerOrigin^ = new imem.OwnerOrigin
       val orig2: imem.OwnerOrigin^ = new imem.OwnerOrigin
-      val listHolder = new imem.BoxHolder[orig.Key, imem.Box[Int, {orig}]^{orig}, {orig}](imem.Box.newExplicit[imem.Box[Int, {orig}]^{orig}, {orig}](imem.Box.newExplicit[Int, {orig}](42)))
+      val listHolder = new imem.BoxHolder[orig.Key, imem.Box[Int, {orig}]^{orig}, {orig}](imem.newBoxExplicit[imem.Box[Int, {orig}]^{orig}, {orig}](imem.newBoxExplicit[Int, {orig}](42)))
       // OK
       val list = listHolder.getBox(orig.getKey())
 
@@ -145,13 +144,13 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to push while peeking immutably") {
     imem.withOwnership: ctx =>
-      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
-      push(list.borrowMut(using ctx), 1)(using ctx)
+      val list = imem.newBoxFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
+      push(imem.borrowMutBox(list)(using ctx), 1)(using ctx)
 
-      val res = peek[Int, {ctx}, {ctx}, {ctx}](list.borrowImmut(using ctx))(using ctx)
+      val res = peek[Int, {ctx}, {ctx}, {ctx}](imem.borrowImmutBox(list)(using ctx))(using ctx)
 
       intercept[IllegalStateException] {
-        push(list.borrowMut(using ctx), 2)(using ctx)
+        push(imem.borrowMutBox(list)(using ctx), 2)(using ctx)
         imem.read(res.get, _ => ())(using ctx) // idle read
       }
       ()
@@ -159,13 +158,13 @@ class ListShouldNotWorkSuite extends munit.FunSuite {
 
   test("should not be able to push while peeking mutably") {
     imem.withOwnership: ctx =>
-      val list = imem.Box.newFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
-      push(list.borrowMut(using ctx), 1)(using ctx)
+      val list = imem.newBoxFromBackground(LinkedList.newFromBackground[Int](using ctx))(using ctx)
+      push(imem.borrowMutBox(list)(using ctx), 1)(using ctx)
 
-      val res = peekMut[Int, {ctx}, {ctx}, {ctx}](list.borrowMut(using ctx))(using ctx)
+      val res = peekMut[Int, {ctx}, {ctx}, {ctx}](imem.borrowMutBox(list)(using ctx))(using ctx)
 
       intercept[IllegalStateException] {
-        push(list.borrowMut(using ctx), 2)(using ctx)
+        push(imem.borrowMutBox(list)(using ctx), 2)(using ctx)
         imem.write(res.get, _ => ())(using ctx) // idle read
       }
   }
