@@ -45,6 +45,7 @@ end Dropped
 /**
  * TODO: For now, `Owner` can be any capability, and it may open ways to exploits.
  * Should restrict it to a specific type only.
+ * TODO: By removing the covariant what happens? Does it solve the early avoidance problem?
 */
 class Box[T, @caps.use +Owner^]():
   // TODO: Looks dirty for accessing the inner type. Should find a better way.
@@ -57,6 +58,8 @@ def borrowImmutBox[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}](self: B
 def borrowMutBox[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}](self: Box[T, Owner]^)(using ctx: Context^{ctxOwner}): MutRef[T, newOwner] =
   self.Impl.borrowMut
 
+// TODO: All the `self` arguments should be `Box[T, Owner]^` not `Box[T, Owner]`. This is because
+// Then the user can use this functions on the boxes it's reading/writing through a reference.
 @throws(classOf[IllegalStateException])
 def setBox[T, Owner^](self: Box[T, Owner], value: T): Unit =
   self.Impl match
@@ -107,20 +110,11 @@ def moveBox[T, Owner^, NewOwner^](self: Box[T, Owner]): Box[T, NewOwner] =
     case Dropped[T, Owner]() =>
       throw new IllegalStateException("Cannot move a dropped Box")
 
-class OwnerOrigin:
-  opaque type Key = Object
-  def getKey(): Key = new Object
-end OwnerOrigin
-
-class BoxHolder[KeyType, T, Owner^](val box: Box[T, {Owner}]):
-  def getBox(key: KeyType): Box[T, {Owner}] = box
-end BoxHolder
-
-def readBox[T, Owner^, S, ctxOwner^](box: Box[T, Owner], readAction: Context^{ctxOwner, Owner} ?=> T^ => S)(using ctx: Context^{ctxOwner}): S =
+def readBox[T, Owner^, S, ctxOwner^](box: Box[T, Owner]^, readAction: Context^{ctxOwner, Owner} ?=> T^ => S)(using ctx: Context^{ctxOwner}): S =
   val ref = borrowImmutBox[T, Owner, {ctx}, {ctx, Owner}](box)(using ctx)
   read[T, {ctx, Owner}, S, ctxOwner](ref, readAction)(using ctx)
 
-def writeBox[T, Owner^, S, ctxOwner^](box: Box[T, Owner], writeAction: Context^{ctxOwner, Owner} ?=> T^ => S)(using ctx: Context^{ctxOwner}): S =
+def writeBox[T, Owner^, S, ctxOwner^](box: Box[T, Owner]^, writeAction: Context^{ctxOwner, Owner} ?=> T^ => S)(using ctx: Context^{ctxOwner}): S =
   val ref = borrowMutBox[T, Owner, {ctx}, {ctx, Owner}](box)(using ctx)
   write[T, {ctx, Owner}, S, ctxOwner](ref, writeAction)(using ctx)
 
@@ -137,3 +131,17 @@ def newBoxExplicit[T, Owner^](value: T): Box[T, Owner] =
   val ret = new Box[T, Owner]()
   setBox(ret, value)
   ret
+
+class OwnerOrigin:
+  opaque type Key = Object
+  def getKey(): Key = new Object
+end OwnerOrigin
+
+class BoxHolder[KeyType, T, Owner^](val box: Box[T, {Owner}])
+
+def useBoxHolder[KeyType, T, Owner^, S, ctxOwner^](
+  holder: BoxHolder[KeyType, T, Owner],
+  key: KeyType,
+  k: Context^{ctxOwner} ?=> Box[T, {Owner}]^ => S
+)(using ctx: Context^{ctxOwner}): S =
+  k(using ctx)(holder.box)

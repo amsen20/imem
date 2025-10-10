@@ -8,12 +8,13 @@ class ResourceShouldWorkSuite extends munit.FunSuite:
       case class BoxedInteger(var value: Int)
       val orig: imem.OwnerOrigin^ = new imem.OwnerOrigin
       val valueHolder = new imem.BoxHolder[orig.Key, BoxedInteger, {orig}](imem.newBoxExplicit[BoxedInteger, {orig}](BoxedInteger(42)))
-      val valueBox = valueHolder.getBox(orig.getKey())
-      val immutRef = imem.borrowImmutBox[BoxedInteger, {orig}, {ctx}, {ctx, orig}](valueBox)(using ctx)
+      imem.useBoxHolder(valueHolder, orig.getKey(), valueBox =>
+        val immutRef = imem.borrowImmutBox[BoxedInteger, {orig}, {ctx}, {ctx, orig}](valueBox)(using ctx)
 
-      assert(imem.readBox[BoxedInteger, {orig}, Boolean, {ctx}](valueBox, _ == BoxedInteger(42))(using ctx))
-      imem.writeBox[BoxedInteger, {orig}, Unit, {ctx}](valueBox, _.value = 12)(using ctx)
-      assert(imem.readBox[BoxedInteger, {orig}, Boolean, {ctx}](valueBox, _ == BoxedInteger(12))(using ctx))
+        assert(imem.readBox[BoxedInteger, {orig}, Boolean, {ctx}](valueBox, _ == BoxedInteger(42))(using ctx))
+        imem.writeBox[BoxedInteger, {orig}, Unit, {ctx}](valueBox, _.value = 12)(using ctx)
+        assert(imem.readBox[BoxedInteger, {orig}, Boolean, {ctx}](valueBox, _ == BoxedInteger(12))(using ctx))
+      )(using ctx)
   }
 end ResourceShouldWorkSuite
 
@@ -24,33 +25,34 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
       val orig: imem.OwnerOrigin^ = new imem.OwnerOrigin
       val listHolder = new imem.BoxHolder[orig.Key, LinkedList[Int, {orig}], {orig}](imem.newBoxExplicit[LinkedList[Int, {orig}], {orig}](newLinkedListExplicit[Int, {orig}]))
-      val list = listHolder.getBox(orig.getKey())
 
-      val mutList = imem.borrowMutBox[LinkedList[Int, {orig}], {orig}, {ctx}, {ctx, orig}](list)(using ctx)
+      imem.useBoxHolder(listHolder, orig.getKey(), list =>
+        val mutList = imem.borrowMutBox[LinkedList[Int, {orig}], {orig}, {ctx}, {ctx, orig}](list)(using ctx)
 
-      // Check empty list behaves right
-      assertEquals(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).isEmpty, true)
+        // Check empty list behaves right
+        assertEquals(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).isEmpty, true)
 
-      // Populate list
-      push(mutList, 1)(using ctx)
-      push(mutList, 2)(using ctx)
-      push(mutList, 3)(using ctx)
+        // Populate list
+        push(mutList, 1)(using ctx)
+        push(mutList, 2)(using ctx)
+        push(mutList, 3)(using ctx)
 
-      // Check normal removal
-      assert(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 3)(using ctx)).getOrElse(false))
-      assert(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 2)(using ctx)).getOrElse(false))
+        // Check normal removal
+        assert(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 3)(using ctx)).getOrElse(false))
+        assert(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 2)(using ctx)).getOrElse(false))
 
-      // Push some more just to make sure nothing's corrupted
-      push[Int, {orig}, {ctx, orig}, {ctx}](mutList, 4)(using ctx)
-      push[Int, {orig}, {ctx, orig}, {ctx}](mutList, 5)(using ctx)
+        // Push some more just to make sure nothing's corrupted
+        push[Int, {orig}, {ctx, orig}, {ctx}](mutList, 4)(using ctx)
+        push[Int, {orig}, {ctx, orig}, {ctx}](mutList, 5)(using ctx)
 
-      // Check normal removal
-      assert(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 5)(using ctx)).getOrElse(false))
-      assert(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 4)(using ctx)).getOrElse(false))
+        // Check normal removal
+        assert(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 5)(using ctx)).getOrElse(false))
+        assert(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 4)(using ctx)).getOrElse(false))
 
-      // Check exhaustion
-      assert(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 1)(using ctx)).getOrElse(false))
-      assert(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).isEmpty)
+        // Check exhaustion
+        assert(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).map(imem.readBox(_, _ == 1)(using ctx)).getOrElse(false))
+        assert(pop[Int, {orig}, {ctx, orig}, {ctx}, {ctx, orig}](mutList)(using ctx).isEmpty)
+      )(using ctx)
   }
 
   test("peek and peekMut") {

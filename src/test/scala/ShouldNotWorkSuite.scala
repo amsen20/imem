@@ -135,7 +135,7 @@ class ResourceShouldNotWorkSuite extends munit.FunSuite {
       val orig2: imem.OwnerOrigin^ = new imem.OwnerOrigin
       val listHolder = new imem.BoxHolder[orig.Key, imem.Box[Int, {orig}]^{orig}, {orig}](imem.newBoxExplicit[imem.Box[Int, {orig}]^{orig}, {orig}](imem.newBoxExplicit[Int, {orig}](42)))
       // OK
-      val list = listHolder.getBox(orig.getKey())
+      imem.useBoxHolder(listHolder, orig.getKey(), list => ())(using ctx)
 
       /*
       * FIXME: For now compile errors, cannot be tested in this unit, can be fixed by writing
