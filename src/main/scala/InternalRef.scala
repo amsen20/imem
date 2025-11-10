@@ -6,19 +6,21 @@ import language.experimental.captureChecking
   * https://plv.mpi-sws.org/rustbelt/stacked-borrows/paper.pdf
   *
   * The implementation is simplified, to be exact:
-  *   - It supports only `Unique`, and `SharedRO` pointers (i.e does not support shared read write raw pointers).
+  *   - It supports only `Unique`, and `SharedRO` pointers (i.e does not support shared read write
+  *     raw pointers).
   *   - It assumes all pointers are safe and outside `UnsafeCell`.
   *   - It does not support re-tagging, meaning it assumes all tags are unique.
-  *   - It does not support protectors, meaning it's possible that a reference (that is a function argument) does not
-  *     out-live the function.
+  *   - It does not support protectors, meaning it's possible that a reference (that is a function
+  *     argument) does not out-live the function.
   *
-  * This implementation is not high-performant, and will harm the concurrency, if shared between multiple threads.
+  * This implementation is not high-performant, and will harm the concurrency, if shared between
+  * multiple threads.
   *
-  * The main reason that protection and re-tagging are not supported is that they require language support (they should
-  * be added in the AST). But this class (at least for now) does not have access to all the program that is using its
-  * instances.
+  * The main reason that protection and re-tagging are not supported is that they require language
+  * support (they should be added in the AST). But this class (at least for now) does not have
+  * access to all the program that is using its instances.
   */
-class InternalRef[T](val unsafeRef: UnsafeRef[T]):
+class InternalRef[T](var unsafeRef: UnsafeRef[T]):
 
   type Timestamp = Long
 
@@ -39,10 +41,11 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
 
   /** Rule (NEW-MUTABLE-REF)
     *
-    * TODO: first consider returning errors, instead of throwing exceptions. If throwing is the decision, check if
-    * `@throws` is the correct way to inform the API user about it, or it should be part of the return type annotation
-    * (e.g. `throws[Unit]`). Also, check if `IllegalStateException` is the correct exception to throw in this case.
-    * Should a package specific defined exception being thrown?
+    * TODO: first consider returning errors, instead of throwing exceptions. If throwing is the
+    * decision, check if `@throws` is the correct way to inform the API user about it, or it should
+    * be part of the return type annotation (e.g. `throws[Unit]`). Also, check if
+    * `IllegalStateException` is the correct exception to throw in this case. Should a package
+    * specific defined exception being thrown?
     *
     * TODO: Checkout `import language.experimental.saferExceptions`.
     */
@@ -53,8 +56,8 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
     val newTag = Tag.Uniq(currentTimeStamp)
     stack.borrows.push(newTag)
 
-    /** TODO: consider instead of passing a tag and this class to the reference, pass an implementation of an interface
-      * that allows the reference to do the borrowing and accessing.
+    /** TODO: consider instead of passing a tag and this class to the reference, pass an
+      * implementation of an interface that allows the reference to do the borrowing and accessing.
       */
     newTag
 
@@ -67,7 +70,8 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
     tag match
       case Tag.Uniq(ts) =>
         stack.borrows.popWhile(_ != tag)
-        if stack.borrows.isEmpty then throw new IllegalStateException(s"UB: use after free detected for tag $tag")
+        if stack.borrows.isEmpty then
+          throw new IllegalStateException(s"UB: use after free detected for tag $tag")
       case Tag.Shr(ts) =>
         throw new IllegalStateException(s"Cannot use (modify) a pointer with `Shr` tag: $tag")
 
@@ -90,7 +94,8 @@ class InternalRef[T](val unsafeRef: UnsafeRef[T]):
   @throws(classOf[IllegalStateException])
   def readCheck(tag: InternalRef[T]#Tag): Unit =
     val above = stack.borrows.popWhile(item => item.timestamp != tag.timestamp)
-    if stack.borrows.isEmpty then throw new IllegalStateException(s"UB: use after free detected for tag $tag")
+    if stack.borrows.isEmpty then
+      throw new IllegalStateException(s"UB: use after free detected for tag $tag")
     else
       above.reverse
         .takeWhile(_ match
@@ -130,4 +135,19 @@ object InternalRef:
     val firstTag = ref.Tag.Uniq(ref.currentTimeStamp)
     ref.stack.borrows.push(firstTag)
     (ref, firstTag)
+
+  def swap[T](
+      tag1: InternalRef[T]#Tag,
+      ref1: InternalRef[T],
+      tag2: InternalRef[T]#Tag,
+      ref2: InternalRef[T]
+  ): Unit =
+    /** Act like you are writing to them.
+      */
+    ref1.write(tag1, _ => ())
+    ref2.write(tag2, _ => ())
+
+    var tmp = ref1.unsafeRef
+    ref1.unsafeRef = ref2.unsafeRef
+    ref2.unsafeRef = tmp
 end InternalRef

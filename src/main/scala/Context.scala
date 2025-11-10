@@ -27,3 +27,5 @@ end DefaultContext
 def withOwnership[T](block: Context^ => T): T =
   val ctx = new imem.DefaultContext
   block(ctx)
+
+class MovingContext[Owner^]

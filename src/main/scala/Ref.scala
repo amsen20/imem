@@ -2,6 +2,7 @@ package imem
 
 import language.experimental.captureChecking
 
+// TODO: Remove the union, instead store the internal refs and call check functions on them.
 type Ref = ImmutRef[?, ?] | MutRef[?, ?]
 
 class ImmutRef[T, +Owner^](
@@ -10,19 +11,29 @@ class ImmutRef[T, +Owner^](
   val parents: List[Ref]
 )
 
-def borrowImmut[T, Owner^](self: ImmutRef[T, Owner]^)(using ctx: Context^): ImmutRef[T, {ctx, Owner}] =
+def borrowImmut[T, Owner^](
+  self: ImmutRef[T, Owner]^
+)(
+  using ctx: Context^
+): ImmutRef[T, {ctx, Owner}]^{self} =
   ImmutRef(self.internalRef.newSharedRef(self.tag), self.internalRef, ctx.getParents)
 
-// TODO: Make sure that it's not possible to smuggle out objects through read.
-def read[T, Owner^, S, ctxOwner^](self: ImmutRef[T, Owner]^, readAction: Context^{ctxOwner, Owner} ?=> T^ => S)(using ctx: Context^{ctxOwner}): S =
+def read[T, Owner^, S, ctxOwner^](
+  self: ImmutRef[T, Owner]^,
+  readAction: Context^{ctxOwner, Owner} ?=> T^ => S
+)(
+  using ctx: Context^{ctxOwner}
+): S =
   self.parents.foreach(_ match
-  case ref: ImmutRef[?, ?] => readCheck(ref)
-  case ref: MutRef[?, ?] => readCheck(ref)
+    case ref: ImmutRef[?, ?] => readCheck(ref)
+    case ref: MutRef[?, ?] => readCheck(ref)
   )
   ctx.pushParent(self.asInstanceOf[Ref])
+
   try
-  self.internalRef.read(self.tag, readAction(using ctx))
-  finally ctx.popParent()
+    self.internalRef.read(self.tag, readAction(using ctx))
+  finally
+    ctx.popParent()
 
 def readCheck[T, Owner^](self: ImmutRef[T, Owner]): Unit =
   self.internalRef.readCheck(self.tag)
@@ -34,26 +45,53 @@ class MutRef[T, +Owner^](
   val tag: InternalRef[T]#Tag,
   val internalRef: InternalRef[T],
   val parents: List[Ref]
-)
+) extends scinear.Linear
 
-def borrowMut[T, Owner^](self: MutRef[T, Owner]^)(using ctx: Context^): MutRef[T, {ctx, Owner}] =
-  MutRef(self.internalRef.newMut(self.tag), self.internalRef, ctx.getParents)
+object MutRef:
+  def unapply[T, Owner^](
+    ref: MutRef[T, Owner]^
+  ): Option[(InternalRef[T]#Tag, InternalRef[T], List[Ref])] =
+    Some((ref.tag, ref.internalRef, ref.parents))
+end MutRef
 
-def borrowImmut[T, Owner^](self: MutRef[T, Owner]^)(using ctx: Context^): ImmutRef[T, {ctx, Owner}] =
-  ImmutRef(self.internalRef.newSharedRef(self.tag), self.internalRef, ctx.getParents)
+def borrowMut[T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
+  self: MutRef[T, Owner]^
+)(
+  using ctx: Context^{ctxOwner}
+): (MutRef[T, newOwner], ValueHolder[newOwnerKey, MutRef[T, Owner]^{self}]) =
+  val (tag, internalRef, parents) = MutRef.unapply(self).get
+  (MutRef(internalRef.newMut(tag), internalRef, ctx.getParents), ValueHolder(MutRef(internalRef.newMut(tag), internalRef, parents)))
 
-def write[T, Owner^, S, ctxOwner^](self: MutRef[T, Owner]^, writeAction: Context^{ctxOwner, Owner} ?=> T^ => S)(using ctx: Context^{ctxOwner}): S =
-  self.parents.foreach(_ match
-  case ref: ImmutRef[?, ?] => writeCheck(ref)
-  case ref: MutRef[?, ?] => writeCheck(ref)
+def borrowImmut[T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
+  self: MutRef[T, Owner]^
+)(
+  using ctx: Context^{ctxOwner}
+): (ImmutRef[T, newOwner], ValueHolder[newOwnerKey, MutRef[T, Owner]^{self}]) =
+  val (tag, internalRef, parents) = MutRef.unapply(self).get
+  (ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents), ValueHolder(MutRef(internalRef.newMut(tag), internalRef, parents)))
+
+def write[T, Owner^, S, ctxOwner^](
+  self: MutRef[T, Owner]^,
+  writeAction: Context^{ctxOwner, Owner} ?=> T^ => S
+)(
+  using ctx: Context^{ctxOwner}
+): S =
+  val (tag, internalRef, parents) = MutRef.unapply(self).get
+
+  parents.foreach(_ match
+    case ref: ImmutRef[?, ?] => writeCheck(ref)
+    case ref: MutRef[?, ?] => writeCheck(ref)
   )
-  ctx.pushParent(self.asInstanceOf[Ref])
+  ctx.pushParent(MutRef(internalRef.newMut(tag), internalRef, parents).asInstanceOf[Ref])
   try
-  self.internalRef.write(self.tag, writeAction(using ctx))
-  finally ctx.popParent()
+    internalRef.write(tag, writeAction(using ctx))
+  finally
+    ctx.popParent()
 
 def readCheck[T, Owner^](self: MutRef[T, Owner]): Unit =
-  self.internalRef.readCheck(self.tag)
+  val (tag, internalRef, parents) = MutRef.unapply(self).get
+  internalRef.readCheck(tag)
 
 def writeCheck[T, Owner^](self: MutRef[T, Owner]): Unit =
-  self.internalRef.useCheck(self.tag)
+  val (tag, internalRef, parents) = MutRef.unapply(self).get
+  internalRef.useCheck(tag)
