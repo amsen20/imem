@@ -2,146 +2,133 @@ package imem
 
 import language.experimental.captureChecking
 
-/** TODO: Maybe make it an enum, and implement the internals in the Box methods.
-  */
-trait BoxImpl[T, +Owner^]:
-  def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner]
-  def borrowMut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): MutRef[T, newOwner]
+def borrowImmutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}](
+  tag: InternalRef[T]#Tag,
+  internalRef: InternalRef[T]
+)(using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner] =
+  ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
 
-  def name: String
-  override def toString(): String
-
-case class Uninitialized[T, +Owner^]() extends BoxImpl[T, Owner]:
-  override def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner] = throw new IllegalStateException(
-    "Cannot borrow an uninitialized Box"
-  )
-  override def borrowMut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): MutRef[T, newOwner] = throw new IllegalStateException(
-    "Cannot borrow an uninitialized Box"
-  )
-  override def name: String = "Uninitialized"
-  override def toString(): String = "Uninitialized"
-end Uninitialized
-
-case class Live[T, +Owner^](val tag: InternalRef[T]#Tag, val internalRef: InternalRef[T]) extends BoxImpl[T, Owner]:
-  override def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner] =
-    ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
-  override def borrowMut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): MutRef[T, newOwner] =
-    MutRef(internalRef.newMut(tag), internalRef, ctx.getParents)
-  override def name: String = "Live"
-  override def toString(): String = s"Live(tag: ${tag}, internalRef: ${internalRef})"
-end Live
-
-case class Dropped[T, +Owner^]() extends BoxImpl[T, Owner]:
-  override def borrowImmut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner] = throw new IllegalStateException(
-    "Cannot borrow a dropped Box"
-  )
-  override def borrowMut[ctxOwner^, newOwner^ >: {ctxOwner, Owner}](using ctx: Context^{ctxOwner}): MutRef[T, newOwner] = throw new IllegalStateException(
-    "Cannot borrow a dropped Box"
-  )
-  override def name: String = "Dropped"
-  override def toString(): String = "Dropped"
-end Dropped
+def borrowMutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}](
+  tag: InternalRef[T]#Tag,
+  internalRef: InternalRef[T]
+)(using ctx: Context^{ctxOwner}): MutRef[T, newOwner] =
+  MutRef(internalRef.newMut(tag), internalRef, ctx.getParents)
 
 /**
  * TODO: For now, `Owner` can be any capability, and it may open ways to exploits.
  * Should restrict it to a specific type only.
  * TODO: By removing the covariant what happens? Does it solve the early avoidance problem?
 */
-class Box[T, @caps.use +Owner^]():
-  // TODO: Looks dirty for accessing the inner type. Should find a better way.
-  var Impl: BoxImpl[T, {Owner}] = Uninitialized()
+class Box[T, @caps.use +Owner^](
+  val tag: InternalRef[T]#Tag,
+  val internalRef: InternalRef[T]
+) extends scinear.Linear
+
+object Box:
+  def unapply[T, Owner^](
+    box: Box[T, Owner]^
+  ): Option[(InternalRef[T]#Tag, InternalRef[T])] =
+    Some((box.tag, box.internalRef))
 end Box
 
-def borrowImmutBox[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}](self: Box[T, Owner]^)(using ctx: Context^{ctxOwner}): ImmutRef[T, newOwner] =
-  self.Impl.borrowImmut
+// TODO: Separate the parameters that the compiler can infer from the ones that it cannot.
+def borrowImmutBox[T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
+  self: Box[T, Owner]^
+)(
+  using ctx: Context^{ctxOwner}
+  // TODO: Make sure not capturing `self` does not break anything.
+): (ImmutRef[T, newOwner], ValueHolder[newOwnerKey, Box[T, Owner]^{self}]) =
+  val (tag, ref) = Box.unapply(self).get
+  (borrowImmutInternal(tag, ref), ValueHolder(newBoxWithInternals(tag, ref)))
 
-def borrowMutBox[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}](self: Box[T, Owner]^)(using ctx: Context^{ctxOwner}): MutRef[T, newOwner] =
-  self.Impl.borrowMut
-
-// TODO: All the `self` arguments should be `Box[T, Owner]^` not `Box[T, Owner]`. This is because
-// Then the user can use this functions on the boxes it's reading/writing through a reference.
-@throws(classOf[IllegalStateException])
-def setBox[T, Owner^](self: Box[T, Owner], value: T): Unit =
-  self.Impl match
-    case Uninitialized[T, Owner]() =>
-      val (ref, tag) = InternalRef.newWithTag(value)
-      // ?: why should I mentioned [T, Owner] every time?
-      // ?: Also, why is `asInstanceOf[BoxImpl[T, Owner]]` needed?
-      self.Impl = Live[T, Owner](tag, ref).asInstanceOf[BoxImpl[T, Owner]]
-    case Live[T, Owner](_, _) =>
-      dropBox(self)
-      val (ref, tag) = InternalRef.newWithTag(value)
-      self.Impl = Live(tag, ref).asInstanceOf[BoxImpl[T, Owner]]
-    case Dropped[T, Owner]() =>
-      throw new IllegalStateException("Cannot set a value to a dropped Box")
+def borrowMutBox[T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
+  self: Box[T, Owner]^
+)(
+  using ctx: Context^{ctxOwner}
+  // TODO: Make sure not capturing `self` does not break anything.
+): (MutRef[T, newOwner], ValueHolder[newOwnerKey, Box[T, Owner]^{self}]) =
+  val (tag, ref) = Box.unapply(self).get
+  (borrowMutInternal(tag, ref), ValueHolder(newBoxWithInternals(tag, ref)))
 
 @throws(classOf[IllegalStateException])
-def dropBox[T, Owner^](self: Box[T, Owner]): Unit =
-  self.Impl match
-    case Uninitialized[T, Owner]() =>
-      throw new IllegalStateException("Cannot drop an uninitialized Box")
-    case Live[T, Owner](_, ref) =>
-      ref.drop()
-      self.Impl = Dropped()
-    case Dropped[T, Owner]() =>
-      throw new IllegalStateException("Cannot drop an already dropped Box")
+def setBox[T, Owner^](self: Box[T, Owner]^, value: T): Box[T, Owner]^{self} =
+  val (tag, ref) = Box.unapply(self).get
+  ref.drop()
+  val (newRef, newTag) = InternalRef.newWithTag(value)
+  newBoxWithInternals(newTag, newRef)
 
 @throws(classOf[IllegalStateException])
-def swapBox[T, @caps.use Owner^, @caps.use OtherOwner^](self: Box[T, Owner], other: Box[T, OtherOwner]): Unit =
-  (self.Impl, other.Impl) match
-    case (Live[T, Owner](tag1, ref1), Live[T, OtherOwner](tag2, ref2)) =>
-      self.Impl = Live(tag2, ref2).asInstanceOf[BoxImpl[T, Owner]]
-      other.Impl = Live(tag1, ref1).asInstanceOf[BoxImpl[T, OtherOwner]]
-    case _ =>
-      throw new IllegalStateException(
-        s"Cannot swap a ${self.Impl.name} with a ${other.Impl.name}"
-      )
+def dropBox[T, Owner^](self: Box[T, Owner]^): Unit =
+  val (tag, ref) = Box.unapply(self).get
+  ref.drop()
 
 @throws(classOf[IllegalStateException])
-def moveBox[T, Owner^, NewOwner^](self: Box[T, Owner]): Box[T, NewOwner] =
-  self.Impl match
-    case Live[T, Owner](_, ref) =>
-      val newBox = Box[T, NewOwner]()
-      setBox(newBox, ref.unsafeGet())
-      dropBox(self)
-      newBox
-    case Uninitialized[T, Owner]() =>
-      throw new IllegalStateException("Cannot move an uninitialized Box")
-    case Dropped[T, Owner]() =>
-      throw new IllegalStateException("Cannot move a dropped Box")
+def swapBox[T, @caps.use Owner^, @caps.use OtherOwner^](
+  self: Box[T, Owner]^, other: Box[T, OtherOwner]^
+): (Box[T, Owner]^{self}, Box[T, OtherOwner]^{other}) =
+  val (selfTag, selfRef) = Box.unapply(self).get
+  val (otherTag, otherRef) = Box.unapply(other).get
+  InternalRef.swap(selfTag, selfRef, otherTag, otherRef)
+  (newBoxWithInternals(selfTag, selfRef), newBoxWithInternals(otherTag, otherRef))
 
-def readBox[T, Owner^, S, ctxOwner^](box: Box[T, Owner]^, readAction: Context^{ctxOwner, Owner} ?=> T^ => S)(using ctx: Context^{ctxOwner}): S =
-  val ref = borrowImmutBox[T, Owner, {ctx}, {ctx, Owner}](box)(using ctx)
-  read[T, {ctx, Owner}, S, ctxOwner](ref, readAction)(using ctx)
+@throws(classOf[IllegalStateException])
+def moving[T, Owner^, S](
+  self: Box[T, Owner]^,
+  movingAction: MovingContext[{Owner}] ?=> T^ => S
+): S =
+  val movingContext = new MovingContext[{Owner}]
+  val ref = Box.unapply(self).get._2
+  movingAction(using movingContext)(ref.unsafeGet())
 
-def writeBox[T, Owner^, S, ctxOwner^](box: Box[T, Owner]^, writeAction: Context^{ctxOwner, Owner} ?=> T^ => S)(using ctx: Context^{ctxOwner}): S =
-  val ref = borrowMutBox[T, Owner, {ctx}, {ctx, Owner}](box)(using ctx)
-  write[T, {ctx, Owner}, S, ctxOwner](ref, writeAction)(using ctx)
+@throws(classOf[IllegalStateException])
+def moveBox[T, Owner^, NewOwner^](
+  self: Box[T, Owner]^
+)(
+  using movingContext: MovingContext[{NewOwner}]
+): Box[T, NewOwner] =
+  val (tag, ref) = Box.unapply(self).get
+  newBoxWithInternals(tag, ref)
+
+def readBox[T, @caps.use Owner^, S, ctxOwner^](
+  box: Box[T, Owner]^,
+  readAction: Context^ ?=> T^ => S
+)(
+  using ctx: Context^{ctxOwner}
+): (Box[T, Owner]^{box}, S) =
+  val lf = Lifetime[{ctx, Owner}]()
+  val (ref, holder) = borrowImmutBox[T, Owner, {ctx}, lf.Key, lf.Owners](box)(using ctx)
+  val res = read[T, lf.Owners, S, ctxOwner](ref, readAction)(using ctx)
+  val newBox = accessValue(lf.getKey(), holder)
+  (newBox, res)
+
+// TODO: Should redefine modification
+def writeBox[T, @caps.use Owner^, S, ctxOwner^](
+  box: Box[T, Owner]^, writeAction: Context^ ?=> T^ => S
+)(
+  using ctx: Context^{ctxOwner}
+): (Box[T, Owner]^{box}, S) =
+  val lf = Lifetime[{ctx, Owner}]()
+  val (ref, holder) = borrowMutBox[T, Owner, {ctx}, lf.Key, lf.Owners](box)(using ctx)
+  val res = write[T, lf.Owners, S, ctxOwner](ref, writeAction)(using ctx)
+  val newBox = accessValue(lf.getKey(), holder)
+  (newBox, res)
 
 def newBoxFromBackground[T](value: T)(using ctx: Context^): Box[T, {ctx}] =
-  val ret = new Box[T, {ctx}]()
-  setBox(ret, value)
-  ret
+  val (newRef, newTag) = InternalRef.newWithTag(value)
+  newBoxWithInternals(newTag, newRef)
 
 /**
   * TODO: Should make it private, then every time one wants to create a new `Box` has to somehow pass it a implicit
   * owner.
+  *
+  * TODO: Make sure that the `Owner` captures the `context` as well.
   */
 def newBoxExplicit[T, Owner^](value: T): Box[T, Owner] =
-  val ret = new Box[T, Owner]()
-  setBox(ret, value)
-  ret
+  val (newRef, newTag) = InternalRef.newWithTag(value)
+  newBoxWithInternals(newTag, newRef)
 
-class OwnerOrigin:
-  opaque type Key = Object
-  def getKey(): Key = new Object
-end OwnerOrigin
-
-class BoxHolder[KeyType, T, Owner^](val box: Box[T, {Owner}])
-
-def useBoxHolder[KeyType, T, Owner^, S, ctxOwner^](
-  holder: BoxHolder[KeyType, T, Owner],
-  key: KeyType,
-  k: Context^{ctxOwner} ?=> Box[T, {Owner}]^ => S
-)(using ctx: Context^{ctxOwner}): S =
-  k(using ctx)(holder.box)
+def newBoxWithInternals[T, Owner^](
+  tag: InternalRef[T]#Tag,
+  internalRef: InternalRef[T]
+): Box[T, Owner] =
+  Box(tag, internalRef)
