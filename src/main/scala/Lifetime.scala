@@ -18,7 +18,7 @@ end Lifetime
 class ValueHolder[KeyType, T](val value: T) extends scinear.Linear
 
 // TODO: rename it to `getBox`, `endBorrow`? find a better name.
-def accessValue[KeyType, T](
+def accessValue[KeyType, @scinear.HideLinearity T](
   key: KeyType,
   holder: ValueHolder[KeyType, T]
 ): T =

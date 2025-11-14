@@ -32,7 +32,7 @@ object Box:
 end Box
 
 // TODO: Separate the parameters that the compiler can infer from the ones that it cannot.
-def borrowImmutBox[T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
+def borrowImmutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
   self: Box[T, Owner]^
 )(
   using ctx: Context^{ctxOwner}
@@ -41,7 +41,7 @@ def borrowImmutBox[T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Ow
   val (tag, ref) = Box.unapply(self).get
   (borrowImmutInternal(tag, ref), ValueHolder(newBoxWithInternals(tag, ref)))
 
-def borrowMutBox[T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
+def borrowMutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
   self: Box[T, Owner]^
 )(
   using ctx: Context^{ctxOwner}
@@ -51,19 +51,19 @@ def borrowMutBox[T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owne
   (borrowMutInternal(tag, ref), ValueHolder(newBoxWithInternals(tag, ref)))
 
 @throws(classOf[IllegalStateException])
-def setBox[T, Owner^](self: Box[T, Owner]^, value: T): Box[T, Owner]^{self} =
+def setBox[@scinear.HideLinearity T, Owner^](self: Box[T, Owner]^, value: T): Box[T, Owner]^{self} =
   val (tag, ref) = Box.unapply(self).get
   ref.drop()
   val (newRef, newTag) = InternalRef.newWithTag(value)
   newBoxWithInternals(newTag, newRef)
 
 @throws(classOf[IllegalStateException])
-def dropBox[T, Owner^](self: Box[T, Owner]^): Unit =
+def dropBox[@scinear.HideLinearity T, Owner^](self: Box[T, Owner]^): Unit =
   val (tag, ref) = Box.unapply(self).get
   ref.drop()
 
 @throws(classOf[IllegalStateException])
-def swapBox[T, @caps.use Owner^, @caps.use OtherOwner^](
+def swapBox[@scinear.HideLinearity T, @caps.use Owner^, @caps.use OtherOwner^](
   self: Box[T, Owner]^, other: Box[T, OtherOwner]^
 ): (Box[T, Owner]^{self}, Box[T, OtherOwner]^{other}) =
   val (selfTag, selfRef) = Box.unapply(self).get
@@ -72,7 +72,7 @@ def swapBox[T, @caps.use Owner^, @caps.use OtherOwner^](
   (newBoxWithInternals(selfTag, selfRef), newBoxWithInternals(otherTag, otherRef))
 
 @throws(classOf[IllegalStateException])
-def moving[T, Owner^, S](
+def moving[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S](
   self: Box[T, Owner]^,
   movingAction: MovingContext[{Owner}] ?=> T^ => S
 ): S =
@@ -81,7 +81,7 @@ def moving[T, Owner^, S](
   movingAction(using movingContext)(ref.unsafeGet())
 
 @throws(classOf[IllegalStateException])
-def moveBox[T, Owner^, NewOwner^](
+def moveBox[@scinear.HideLinearity T, Owner^, NewOwner^](
   self: Box[T, Owner]^
 )(
   using movingContext: MovingContext[{NewOwner}]
@@ -89,7 +89,7 @@ def moveBox[T, Owner^, NewOwner^](
   val (tag, ref) = Box.unapply(self).get
   newBoxWithInternals(tag, ref)
 
-def readBox[T, @caps.use Owner^, S, ctxOwner^](
+def readBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^](
   box: Box[T, Owner]^,
   readAction: Context^ ?=> T^ => S
 )(
@@ -102,7 +102,7 @@ def readBox[T, @caps.use Owner^, S, ctxOwner^](
   (newBox, res)
 
 // TODO: Should redefine modification
-def writeBox[T, @caps.use Owner^, S, ctxOwner^](
+def writeBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^](
   box: Box[T, Owner]^, writeAction: Context^ ?=> T^ => S
 )(
   using ctx: Context^{ctxOwner}
@@ -113,7 +113,7 @@ def writeBox[T, @caps.use Owner^, S, ctxOwner^](
   val newBox = accessValue(lf.getKey(), holder)
   (newBox, res)
 
-def newBoxFromBackground[T](value: T)(using ctx: Context^): Box[T, {ctx}] =
+def newBoxFromBackground[@scinear.HideLinearity T](value: T)(using ctx: Context^): Box[T, {ctx}] =
   val (newRef, newTag) = InternalRef.newWithTag(value)
   newBoxWithInternals(newTag, newRef)
 
@@ -123,11 +123,11 @@ def newBoxFromBackground[T](value: T)(using ctx: Context^): Box[T, {ctx}] =
   *
   * TODO: Make sure that the `Owner` captures the `context` as well.
   */
-def newBoxExplicit[T, Owner^](value: T): Box[T, Owner] =
+def newBoxExplicit[@scinear.HideLinearity T, Owner^](value: T): Box[T, Owner] =
   val (newRef, newTag) = InternalRef.newWithTag(value)
   newBoxWithInternals(newTag, newRef)
 
-def newBoxWithInternals[T, Owner^](
+def newBoxWithInternals[@scinear.HideLinearity T, Owner^](
   tag: InternalRef[T]#Tag,
   internalRef: InternalRef[T]
 ): Box[T, Owner] =

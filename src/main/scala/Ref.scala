@@ -11,14 +11,14 @@ class ImmutRef[T, +Owner^](
   val parents: List[Ref]
 )
 
-def borrowImmut[T, Owner^](
+def borrowImmut[@scinear.HideLinearity T, Owner^](
   self: ImmutRef[T, Owner]^
 )(
   using ctx: Context^
 ): ImmutRef[T, {ctx, Owner}]^{self} =
   ImmutRef(self.internalRef.newSharedRef(self.tag), self.internalRef, ctx.getParents)
 
-def read[T, Owner^, S, ctxOwner^](
+def read[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^](
   self: ImmutRef[T, Owner]^,
   readAction: Context^{ctxOwner, Owner} ?=> T^ => S
 )(
@@ -54,7 +54,7 @@ object MutRef:
     Some((ref.tag, ref.internalRef, ref.parents))
 end MutRef
 
-def borrowMut[T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
+def borrowMut[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
   self: MutRef[T, Owner]^
 )(
   using ctx: Context^{ctxOwner}
@@ -62,7 +62,7 @@ def borrowMut[T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}]
   val (tag, internalRef, parents) = MutRef.unapply(self).get
   (MutRef(internalRef.newMut(tag), internalRef, ctx.getParents), ValueHolder(MutRef(internalRef.newMut(tag), internalRef, parents)))
 
-def borrowImmut[T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
+def borrowImmut[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
   self: MutRef[T, Owner]^
 )(
   using ctx: Context^{ctxOwner}
@@ -70,7 +70,7 @@ def borrowImmut[T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner
   val (tag, internalRef, parents) = MutRef.unapply(self).get
   (ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents), ValueHolder(MutRef(internalRef.newMut(tag), internalRef, parents)))
 
-def write[T, Owner^, S, ctxOwner^](
+def write[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^](
   self: MutRef[T, Owner]^,
   writeAction: Context^{ctxOwner, Owner} ?=> T^ => S
 )(
