@@ -88,6 +88,25 @@ def write[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^]
   finally
     ctx.popParent()
 
+def writeWithLinearArg[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^, LinearArgType <: scinear.Linear](
+  self: MutRef[T, Owner]^,
+  writeAction: Context^{ctxOwner, Owner} ?=> (T, LinearArgType) => S,
+  linearArg: LinearArgType
+)(
+  using ctx: Context^{ctxOwner}
+): S =
+  val (tag, internalRef, parents) = MutRef.unapply(self).get
+
+  parents.foreach(_ match
+    case ref: ImmutRef[?, ?] => writeCheck(ref)
+    case ref: MutRef[?, ?] => writeCheck(ref)
+  )
+  ctx.pushParent(MutRef(internalRef.newMut(tag), internalRef, parents).asInstanceOf[Ref])
+  try
+    internalRef.writeWithLinearArg(tag, writeAction(using ctx), linearArg)
+  finally
+    ctx.popParent()
+
 def readCheck[T, Owner^](self: MutRef[T, Owner]): Unit =
   val (tag, internalRef, parents) = MutRef.unapply(self).get
   internalRef.readCheck(tag)

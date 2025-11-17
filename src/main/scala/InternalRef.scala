@@ -117,6 +117,14 @@ class InternalRef[T](var unsafeRef: UnsafeRef[T]):
     useCheck(tag)
     unsafeRef.modify(writeAction)
 
+  def writeWithLinearArg[S, LinearArgType <: scinear.Linear](
+      tag: InternalRef[T]#Tag,
+      writeAction: (T, LinearArgType) => S,
+      linearArg: LinearArgType
+  ): S =
+    useCheck(tag)
+    unsafeRef.modifyWithLinearArg(writeAction, linearArg)
+
   /** TODO: Should be private, it is used for implementing moving
     */
   def unsafeGet(): T = unsafeRef.unsafeGet()

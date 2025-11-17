@@ -8,6 +8,10 @@ class UnsafeRef[T](val value: T):
   /** TODO: This should be exclusive mutable capability.
     */
   def modify[S](writeAction: T => S): S = writeAction(value)
+  def modifyWithLinearArg[S, LinearArgType <: scinear.Linear](
+      writeAction: (T, LinearArgType) => S,
+      linearArg: LinearArgType
+  ): S = writeAction(value, linearArg)
 
   /** TODO: Should be private, it is used for implementing moving
     */
