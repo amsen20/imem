@@ -129,6 +129,14 @@ class InternalRef[T](var unsafeRef: UnsafeRef[T]):
     */
   def unsafeGet(): T = unsafeRef.unsafeGet()
 
+  def setValue(value: T): Unit =
+    // TODO: Here, `unsafeRef` can be freed.
+    unsafeRef = UnsafeRef(value)
+
+  def dropAllBorrows(): Unit =
+    val removedTags = stack.borrows.popAll()
+    stack.borrows.push(removedTags.last)
+
   def drop(): Unit =
     stack.borrows.popAll()
 

@@ -60,7 +60,7 @@ def borrowMut[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner
   using ctx: Context^{ctxOwner}
 ): (MutRef[T, newOwner], ValueHolder[newOwnerKey, MutRef[T, Owner]^{self}]) =
   val (tag, internalRef, parents) = MutRef.unapply(self).get
-  (MutRef(internalRef.newMut(tag), internalRef, ctx.getParents), ValueHolder(MutRef(internalRef.newMut(tag), internalRef, parents)))
+  (MutRef(internalRef.newMut(tag), internalRef, ctx.getParents), ValueHolder(MutRef(tag, internalRef, parents)))
 
 def borrowImmut[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
   self: MutRef[T, Owner]^
@@ -68,7 +68,7 @@ def borrowImmut[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwn
   using ctx: Context^{ctxOwner}
 ): (ImmutRef[T, newOwner], ValueHolder[newOwnerKey, MutRef[T, Owner]^{self}]) =
   val (tag, internalRef, parents) = MutRef.unapply(self).get
-  (ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents), ValueHolder(MutRef(internalRef.newMut(tag), internalRef, parents)))
+  (ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents), ValueHolder(MutRef(tag, internalRef, parents)))
 
 def write[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^](
   self: MutRef[T, Owner]^,
@@ -82,7 +82,7 @@ def write[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^]
     case ref: ImmutRef[?, ?] => writeCheck(ref)
     case ref: MutRef[?, ?] => writeCheck(ref)
   )
-  ctx.pushParent(MutRef(internalRef.newMut(tag), internalRef, parents).asInstanceOf[Ref])
+  ctx.pushParent(MutRef(tag, internalRef, parents).asInstanceOf[Ref])
   try
     internalRef.write(tag, writeAction(using ctx))
   finally
@@ -101,7 +101,7 @@ def writeWithLinearArg[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity 
     case ref: ImmutRef[?, ?] => writeCheck(ref)
     case ref: MutRef[?, ?] => writeCheck(ref)
   )
-  ctx.pushParent(MutRef(internalRef.newMut(tag), internalRef, parents).asInstanceOf[Ref])
+  ctx.pushParent(MutRef(tag, internalRef, parents).asInstanceOf[Ref])
   try
     internalRef.writeWithLinearArg(tag, writeAction(using ctx), linearArg)
   finally

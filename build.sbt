@@ -15,7 +15,7 @@ lazy val root = project
     scalacOptions += "-explain",
     // scalacOptions += "-explain-cyclic",
     // scalacOptions += "-Ydebug-cyclic",
-    scalacOptions += s"""-Xplugin:$scinearPluginPath"""
+    scalacOptions += s"""-Xplugin:$scinearPluginPath""",
     // scalacOptions += "-Xprint:cc"
     // scalacOptions += "-Ycc-debug"
   )
