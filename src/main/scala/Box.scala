@@ -53,9 +53,9 @@ def borrowMutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOw
 @throws(classOf[IllegalStateException])
 def setBox[@scinear.HideLinearity T, Owner^](self: Box[T, Owner]^, value: T): Box[T, Owner]^{self} =
   val (tag, ref) = Box.unapply(self).get
-  ref.drop()
-  val (newRef, newTag) = InternalRef.newWithTag(value)
-  newBoxWithInternals(newTag, newRef)
+  ref.dropAllBorrows()
+  ref.setValue(value)
+  newBoxWithInternals(tag, ref)
 
 @throws(classOf[IllegalStateException])
 def dropBox[@scinear.HideLinearity T, Owner^](self: Box[T, Owner]^): Unit =
