@@ -115,7 +115,7 @@ class InternalRef[T](var unsafeRef: UnsafeRef[T]):
   @throws(classOf[IllegalStateException])
   def write[S](tag: InternalRef[T]#Tag, writeAction: T => S): S =
     useCheck(tag)
-    unsafeRef.modify(writeAction)
+    unsafeRef.write(writeAction)
 
   def writeWithLinearArg[S, LinearArgType <: scinear.Linear](
       tag: InternalRef[T]#Tag,
@@ -123,7 +123,7 @@ class InternalRef[T](var unsafeRef: UnsafeRef[T]):
       writeAction: (T, LinearArgType^{linearArg}) => S,
   ): S =
     useCheck(tag)
-    unsafeRef.modifyWithLinearArg[S, LinearArgType](linearArg, writeAction)
+    unsafeRef.writeWithLinearArg[S, LinearArgType](linearArg, writeAction)
 
   /** TODO: Should be private, it is used for implementing moving
     */
