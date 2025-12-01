@@ -9,8 +9,8 @@ class UnsafeRef[T](val value: T):
     */
   def modify[S](writeAction: T => S): S = writeAction(value)
   def modifyWithLinearArg[S, LinearArgType <: scinear.Linear](
-      writeAction: (T, LinearArgType) => S,
-      linearArg: LinearArgType
+      linearArg: LinearArgType^,
+      writeAction: (T, LinearArgType^{linearArg}) => S,
   ): S = writeAction(value, linearArg)
 
   /** TODO: Should be private, it is used for implementing moving

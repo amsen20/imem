@@ -8,24 +8,20 @@ import language.experimental.captureChecking
   *
   * NOTE: This is a temporary solution and will be removed/replaced throughout time.
   */
-trait Context:
-  def getParents: List[Ref]
-  def pushParent(parent: Ref): Unit
-  def popParent(): Unit
-end Context
-
-class DefaultContext extends Context:
+class Context[WriteCap^]:
   private var parents: List[Ref] = List.empty
-  override def getParents: List[Ref] = parents.toList
-  override def pushParent(parent: Ref): Unit =
+  def getParents: List[Ref] = parents.toList
+  def pushParent(parent: Ref): Unit =
     parents = parent :: parents
-  override def popParent(): Unit = parents match
+  def popParent(): Unit = parents match
     case Nil       => throw new IllegalStateException("No parent to pop")
     case _ :: tail => parents = tail
-end DefaultContext
+end Context
 
-def withOwnership[T](block: Context^ => T): T =
-  val ctx = new imem.DefaultContext
-  block(ctx)
+def withOwnership[T](block: [@caps.use WriteCap^] => Context[WriteCap]^ => T): T =
+  object writeCap extends caps.Capability
+  Object().asInstanceOf[T]
+  val ctx = Context[{writeCap}]()
+  block[{writeCap}](ctx)
 
 class MovingContext[Owner^]

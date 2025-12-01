@@ -119,11 +119,11 @@ class InternalRef[T](var unsafeRef: UnsafeRef[T]):
 
   def writeWithLinearArg[S, LinearArgType <: scinear.Linear](
       tag: InternalRef[T]#Tag,
-      writeAction: (T, LinearArgType) => S,
-      linearArg: LinearArgType
+      linearArg: LinearArgType^,
+      writeAction: (T, LinearArgType^{linearArg}) => S,
   ): S =
     useCheck(tag)
-    unsafeRef.modifyWithLinearArg(writeAction, linearArg)
+    unsafeRef.modifyWithLinearArg[S, LinearArgType](linearArg, writeAction)
 
   /** TODO: Should be private, it is used for implementing moving
     */
