@@ -2,20 +2,15 @@ package imem
 
 import language.experimental.captureChecking
 
-class UnsafeRef[T](val value: T):
-  def read[S](readAction: T => S): S = readAction(value)
+private[imem] class UnsafeRef[T](private val resource: T):
+  private[imem] def applyAction[S](action: T => S): S = action(resource)
 
-  /** TODO: This should be exclusive mutable capability.
-    */
-  def write[S](writeAction: T => S): S = writeAction(value)
-  def writeWithLinearArg[S, LinearArgType <: scinear.Linear](
+  private[imem] def applyActionWithLinearArg[S, LinearArgType <: scinear.Linear](
       linearArg: LinearArgType^,
       writeAction: (T, LinearArgType^{linearArg}) => S,
-  ): S = writeAction(value, linearArg)
+  ): S = writeAction(resource, linearArg)
 
-  /** TODO: Should be private, it is used for implementing moving
-    */
-  def unsafeGet(): T = value
+  private[imem] def unsafeGet(): T = resource
 
-  override def toString(): String = s"UnsafeRef(${value})"
+  override def toString(): String = s"UnsafeRef(${resource})"
 end UnsafeRef

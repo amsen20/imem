@@ -6,26 +6,26 @@ def borrowImmutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}, Wr
   tag: InternalRef[T]#Tag,
   internalRef: InternalRef[T]
 )(using ctx: Context[WriteCap]^{ctxOwner}): ImmutRef[T, newOwner] =
-  ImmutRef(internalRef.newSharedRef(tag), internalRef, ctx.getParents)
+  ImmutRef(internalRef.newShared(tag), internalRef, ctx.getUnderOpRefs)
 
 def borrowMutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}, WriteCap^](
   tag: InternalRef[T]#Tag,
   internalRef: InternalRef[T]
 )(using ctx: Context[WriteCap]^{ctxOwner}): MutRef[T, newOwner] =
-  MutRef(internalRef.newMut(tag), internalRef, ctx.getParents)
+  MutRef(internalRef.newUnique(tag), internalRef, ctx.getUnderOpRefs)
 
 /**
  * TODO: For now, `Owner` can be any capability, and it may open ways to exploits.
  * Should restrict it to a specific type only.
  * TODO: By removing the covariant what happens? Does it solve the early avoidance problem?
 */
-class Box[T, @caps.use +Owner^](
-  val tag: InternalRef[T]#Tag,
-  val internalRef: InternalRef[T]
+class Box[T, @caps.use Owner^](
+  private [imem] val tag: InternalRef[T]#Tag,
+  private [imem] val internalRef: InternalRef[T]
 ) extends scinear.Linear
 
 object Box:
-  def unapply[T, Owner^](
+  private [imem] def unapply[T, Owner^](
     box: Box[T, Owner]^
   ): Option[(InternalRef[T]#Tag, InternalRef[T])] =
     Some((box.tag, box.internalRef))
@@ -50,18 +50,33 @@ def borrowMutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOw
   val (tag, ref) = Box.unapply(self).get
   (borrowMutInternal(tag, ref), ValueHolder(newBoxWithInternals(tag, ref)))
 
+// TODO: I guess it's possible to remove all the annotations.
 @throws(classOf[IllegalStateException])
-def setBox[@scinear.HideLinearity T, Owner^, ctxOwner^, @caps.use WriteCap^](self: Box[T, Owner]^, value: T)(using Context[WriteCap]^{ctxOwner}): Box[T, Owner]^{self} =
+def setBox[@scinear.HideLinearity T, Owner^, ctxOwner^, @caps.use WriteCap^](self: Box[T, Owner]^, resource: T)(using ctx: Context[WriteCap]^{ctxOwner}): Box[T, Owner]^{self} =
   // TODO: Somehow provide some interfaces, that will call the actual memory allocation and deallocation functions.
+
+  // TODO: The following check is duplicated, consider refactoring it.
+  ctx.getUnderOpRefs.foreach(_ match
+    case ref: ImmutRef[?, ?] => writeCheck(ref)
+    case ref: MutRef[?, ?] => writeCheck(ref)
+  )
+
   val (tag, ref) = Box.unapply(self).get
+  ref.useCheck(tag)
+
   ref.dropAllBorrows()
-  ref.setValue(value)
+  ref.setResource(resource)
   newBoxWithInternals(tag, ref)
 
 @throws(classOf[IllegalStateException])
 def swapBox[@scinear.HideLinearity T, @caps.use Owner^, @caps.use OtherOwner^, ctxOwner^, @caps.use WriteCap^](
   self: Box[T, Owner]^, other: Box[T, OtherOwner]^
-)(using Context[WriteCap]^{ctxOwner}): (Box[T, Owner]^{self}, Box[T, OtherOwner]^{other}) =
+)(using ctx: Context[WriteCap]^{ctxOwner}): (Box[T, Owner]^{self}, Box[T, OtherOwner]^{other}) =
+  ctx.getUnderOpRefs.foreach(_ match
+    case ref: ImmutRef[?, ?] => writeCheck(ref)
+    case ref: MutRef[?, ?] => writeCheck(ref)
+  )
+
   val (selfTag, selfRef) = Box.unapply(self).get
   val (otherTag, otherRef) = Box.unapply(other).get
   InternalRef.swap(selfTag, selfRef, otherTag, otherRef)
@@ -71,9 +86,17 @@ def swapBox[@scinear.HideLinearity T, @caps.use Owner^, @caps.use OtherOwner^, c
 def moving[@scinear.HideLinearity T, Owner^, ctxOwner^, @scinear.HideLinearity S, @caps.use WriteCap^](
   self: Box[T, Owner]^,
   movingAction: MovingContext[{Owner}] ?->{Owner, ctxOwner, WriteCap} T^ ->{Owner, ctxOwner, WriteCap} S
-)(using Context[WriteCap]^{ctxOwner}): S =
+)(using ctx: Context[WriteCap]^{ctxOwner}): S =
+  ctx.getUnderOpRefs.foreach(_ match
+    case ref: ImmutRef[?, ?] => writeCheck(ref)
+    case ref: MutRef[?, ?] => writeCheck(ref)
+  )
+
   val movingContext = new MovingContext[{Owner}]
-  val ref = Box.unapply(self).get._2
+  val (tag, ref) = Box.unapply(self).get
+
+  ref.useCheck(tag)
+
   movingAction(using movingContext)(ref.unsafeGet())
 
 @throws(classOf[IllegalStateException])

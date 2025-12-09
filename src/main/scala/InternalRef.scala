@@ -20,18 +20,18 @@ import language.experimental.captureChecking
   * support (they should be added in the AST). But this class (at least for now) does not have
   * access to all the program that is using its instances.
   */
-class InternalRef[T](var unsafeRef: UnsafeRef[T]):
+private[imem] class InternalRef[T](private var unsafeRef: UnsafeRef[T]):
 
-  type Timestamp = Long
+  private type Timestamp = Long
 
-  enum Tag(val timestamp: Timestamp):
+  private[imem] enum Tag(val timestamp: Timestamp):
     // Uniq tag grants reads and writes.
     case Uniq(override val timestamp: Timestamp) extends Tag(timestamp)
     // Shr tag grants read-only access.
     case Shr(override val timestamp: Timestamp) extends Tag(timestamp)
   end Tag
 
-  class Stack:
+  private class Stack:
     // TODO: change it back to `Tag`, and don't expose tags out of `InternalRef`
     val borrows = scala.collection.mutable.Stack[InternalRef[T]#Tag]()
   end Stack
@@ -50,7 +50,7 @@ class InternalRef[T](var unsafeRef: UnsafeRef[T]):
     * TODO: Checkout `import language.experimental.saferExceptions`.
     */
   @throws(classOf[IllegalStateException])
-  def newMut(derived: InternalRef[T]#Tag): InternalRef[T]#Tag =
+  private[imem] def newUnique(derived: InternalRef[T]#Tag): InternalRef[T]#Tag =
     useCheck(derived)
     currentTimeStamp += 1
     val newTag = Tag.Uniq(currentTimeStamp)
@@ -66,7 +66,7 @@ class InternalRef[T](var unsafeRef: UnsafeRef[T]):
     * TODO: the same as `newMut`
     */
   @throws(classOf[IllegalStateException])
-  def useCheck(tag: InternalRef[T]#Tag): Unit =
+  private[imem] def useCheck(tag: InternalRef[T]#Tag): Unit =
     tag match
       case Tag.Uniq(ts) =>
         stack.borrows.popWhile(_ != tag)
@@ -80,7 +80,7 @@ class InternalRef[T](var unsafeRef: UnsafeRef[T]):
     * TODO: the same as `newMut`
     */
   @throws(classOf[IllegalStateException])
-  def newSharedRef(derived: InternalRef[T]#Tag): InternalRef[T]#Tag =
+  private[imem] def newShared(derived: InternalRef[T]#Tag): InternalRef[T]#Tag =
     readCheck(derived)
     currentTimeStamp += 1
     val newTag = Tag.Shr(currentTimeStamp)
@@ -92,7 +92,7 @@ class InternalRef[T](var unsafeRef: UnsafeRef[T]):
     * TODO: the same as `newMut`
     */
   @throws(classOf[IllegalStateException])
-  def readCheck(tag: InternalRef[T]#Tag): Unit =
+  private[imem] def readCheck(tag: InternalRef[T]#Tag): Unit =
     val above = stack.borrows.popWhile(item => item.timestamp != tag.timestamp)
     if stack.borrows.isEmpty then
       throw new IllegalStateException(s"UB: use after free detected for tag $tag")
@@ -106,53 +106,53 @@ class InternalRef[T](var unsafeRef: UnsafeRef[T]):
   /** TODO: the same as `newMut`
     */
   @throws(classOf[IllegalStateException])
-  def read[S](tag: InternalRef[T]#Tag, readAction: T => S): S =
+  private[imem] def read[S](tag: InternalRef[T]#Tag, readAction: T => S): S =
     readCheck(tag)
-    unsafeRef.read(readAction)
+    unsafeRef.applyAction(readAction)
 
   /** TODO: the same as `newMut`
     */
   @throws(classOf[IllegalStateException])
-  def write[S](tag: InternalRef[T]#Tag, writeAction: T => S): S =
+  private[imem] def write[S](tag: InternalRef[T]#Tag, writeAction: T => S): S =
     useCheck(tag)
-    unsafeRef.write(writeAction)
+    unsafeRef.applyAction(writeAction)
 
-  def writeWithLinearArg[S, LinearArgType <: scinear.Linear](
+  private[imem] def writeWithLinearArg[S, LinearArgType <: scinear.Linear](
       tag: InternalRef[T]#Tag,
       linearArg: LinearArgType^,
       writeAction: (T, LinearArgType^{linearArg}) => S,
   ): S =
     useCheck(tag)
-    unsafeRef.writeWithLinearArg[S, LinearArgType](linearArg, writeAction)
+    unsafeRef.applyActionWithLinearArg[S, LinearArgType](linearArg, writeAction)
 
   /** TODO: Should be private, it is used for implementing moving
     */
-  def unsafeGet(): T = unsafeRef.unsafeGet()
+  private[imem] def unsafeGet(): T = unsafeRef.unsafeGet()
 
-  def setValue(value: T): Unit =
+  private[imem] def setResource(resource: T): Unit =
     // TODO: Here, `unsafeRef` can be freed.
-    unsafeRef = UnsafeRef(value)
+    unsafeRef = UnsafeRef(resource)
 
-  def dropAllBorrows(): Unit =
+  private[imem] def dropAllBorrows(): Unit =
     val removedTags = stack.borrows.popAll()
     stack.borrows.push(removedTags.last)
 
-  def drop(): Unit =
+  private[imem] def drop(): Unit =
     stack.borrows.popAll()
 
   override def toString(): String = s"InternalRef(${unsafeRef})"
 
 end InternalRef
 
-object InternalRef:
-  def newWithTag[T](value: T): (InternalRef[T], InternalRef[T]#Tag) =
+private[imem] object InternalRef:
+  private[imem] def newWithTag[T](value: T): (InternalRef[T], InternalRef[T]#Tag) =
     val ref = new InternalRef(UnsafeRef(value))
     // TODO: make it cleaner, looks like a dirty way to create a new tag.
     val firstTag = ref.Tag.Uniq(ref.currentTimeStamp)
     ref.stack.borrows.push(firstTag)
     (ref, firstTag)
 
-  def swap[T](
+  private[imem] def swap[T](
       tag1: InternalRef[T]#Tag,
       ref1: InternalRef[T],
       tag2: InternalRef[T]#Tag,

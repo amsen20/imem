@@ -9,13 +9,13 @@ import language.experimental.captureChecking
   * NOTE: This is a temporary solution and will be removed/replaced throughout time.
   */
 class Context[WriteCap^]:
-  private var parents: List[Ref] = List.empty
-  def getParents: List[Ref] = parents.toList
-  def pushParent(parent: Ref): Unit =
-    parents = parent :: parents
-  def popParent(): Unit = parents match
-    case Nil       => throw new IllegalStateException("No parent to pop")
-    case _ :: tail => parents = tail
+  private var UnderOpRefs: List[Ref] = List.empty
+  def getUnderOpRefs: List[Ref] = UnderOpRefs.toList
+  def push(underOp: Ref): Unit =
+    UnderOpRefs = underOp :: UnderOpRefs
+  def pop(): Unit = UnderOpRefs match
+    case Nil       => throw new IllegalStateException("No under operation reference to pop")
+    case _ :: tail => UnderOpRefs = tail
 end Context
 
 def withOwnership[T](block: [@caps.use WriteCap^] => Context[WriteCap]^ => T): T =
