@@ -6,13 +6,13 @@ def borrowImmutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}, Wr
   tag: InternalRef[T]#Tag,
   internalRef: InternalRef[T]
 )(using ctx: Context[WriteCap]^{ctxOwner}): ImmutRef[T, newOwner] =
-  ImmutRef(internalRef.newShared(tag), internalRef, ctx.getUnderOpRefs)
+  ImmutRef(internalRef.newShared(tag), internalRef)
 
 def borrowMutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}, WriteCap^](
   tag: InternalRef[T]#Tag,
   internalRef: InternalRef[T]
 )(using ctx: Context[WriteCap]^{ctxOwner}): MutRef[T, newOwner] =
-  MutRef(internalRef.newUnique(tag), internalRef, ctx.getUnderOpRefs)
+  MutRef(internalRef.newUnique(tag), internalRef)
 
 /**
  * TODO: For now, `Owner` can be any capability, and it may open ways to exploits.
@@ -54,13 +54,6 @@ def borrowMutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOw
 @throws(classOf[IllegalStateException])
 def setBox[@scinear.HideLinearity T, Owner^, ctxOwner^, @caps.use WriteCap^](self: Box[T, Owner]^, resource: T)(using ctx: Context[WriteCap]^{ctxOwner}): Box[T, Owner]^{self} =
   // TODO: Somehow provide some interfaces, that will call the actual memory allocation and deallocation functions.
-
-  // TODO: The following check is duplicated, consider refactoring it.
-  ctx.getUnderOpRefs.foreach(_ match
-    case ref: ImmutRef[?, ?] => writeCheck(ref)
-    case ref: MutRef[?, ?] => writeCheck(ref)
-  )
-
   val (tag, ref) = Box.unapply(self).get
   ref.useCheck(tag)
 
@@ -72,11 +65,6 @@ def setBox[@scinear.HideLinearity T, Owner^, ctxOwner^, @caps.use WriteCap^](sel
 def swapBox[@scinear.HideLinearity T, @caps.use Owner^, @caps.use OtherOwner^, ctxOwner^, @caps.use WriteCap^](
   self: Box[T, Owner]^, other: Box[T, OtherOwner]^
 )(using ctx: Context[WriteCap]^{ctxOwner}): (Box[T, Owner]^{self}, Box[T, OtherOwner]^{other}) =
-  ctx.getUnderOpRefs.foreach(_ match
-    case ref: ImmutRef[?, ?] => writeCheck(ref)
-    case ref: MutRef[?, ?] => writeCheck(ref)
-  )
-
   val (selfTag, selfRef) = Box.unapply(self).get
   val (otherTag, otherRef) = Box.unapply(other).get
   InternalRef.swap(selfTag, selfRef, otherTag, otherRef)
@@ -87,11 +75,6 @@ def derefForMoving[@scinear.HideLinearity T, Owner^, ctxOwner^, @scinear.HideLin
   self: Box[T, Owner]^,
   moveAction: T^ ->{Owner, ctxOwner, WriteCap} S
 )(using ctx: Context[WriteCap]^{ctxOwner}): S =
-  ctx.getUnderOpRefs.foreach(_ match
-    case ref: ImmutRef[?, ?] => writeCheck(ref)
-    case ref: MutRef[?, ?] => writeCheck(ref)
-  )
-
   val (tag, ref) = Box.unapply(self).get
 
   ref.useCheck(tag)

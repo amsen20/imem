@@ -7,9 +7,7 @@ type Ref = ImmutRef[?, ?] | MutRef[?, ?]
 
 class ImmutRef[T, Owner^](
   private[imem] val tag: InternalRef[T]#Tag,
-  private[imem] val internalRef: InternalRef[T],
-  // TODO: Remove all mentions of parents and context use checking propagation.
-  private[imem] val parents: List[Ref]
+  private[imem] val internalRef: InternalRef[T]
 )
 
 def borrowImmut[@scinear.HideLinearity T, Owner^, WriteCap^](
@@ -19,7 +17,7 @@ def borrowImmut[@scinear.HideLinearity T, Owner^, WriteCap^](
   // TODO: Check if not capturing `self` in return type is ok.
   // TODO: Should there be a `newOwner` or `{ctx, Owner}` is better?
 ): ImmutRef[T, {ctx, Owner}] =
-  ImmutRef(self.internalRef.newShared(self.tag), self.internalRef, ctx.getUnderOpRefs)
+  ImmutRef(self.internalRef.newShared(self.tag), self.internalRef)
 
 def read[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^, WriteCap^](
   self: ImmutRef[T, Owner]^,
@@ -27,16 +25,7 @@ def read[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^, 
 )(
   using ctx: Context[WriteCap]^{ctxOwner}
 ): S =
-  self.parents.foreach(_ match
-    case ref: ImmutRef[?, ?] => readCheck(ref)
-    case ref: MutRef[?, ?] => readCheck(ref)
-  )
-  ctx.push(self.asInstanceOf[Ref])
-
-  try
-    self.internalRef.read(self.tag, readAction(using ctx))
-  finally
-    ctx.pop()
+  self.internalRef.read(self.tag, readAction(using ctx))
 
 private[imem] def readCheck[T, Owner^](self: ImmutRef[T, Owner]): Unit =
   self.internalRef.readCheck(self.tag)
@@ -46,15 +35,14 @@ private[imem] def writeCheck[T, Owner^](self: ImmutRef[T, Owner]): Unit =
 
 class MutRef[T, Owner^](
   private[imem] val tag: InternalRef[T]#Tag,
-  private[imem] val internalRef: InternalRef[T],
-  private[imem] val parents: List[Ref]
+  private[imem] val internalRef: InternalRef[T]
 ) extends scinear.Linear
 
 private[imem] object MutRef:
   private[imem] def unapply[T, Owner^](
     ref: MutRef[T, Owner]^
-  ): Option[(InternalRef[T]#Tag, InternalRef[T], List[Ref])] =
-    Some((ref.tag, ref.internalRef, ref.parents))
+  ): Option[(InternalRef[T]#Tag, InternalRef[T])] =
+    Some((ref.tag, ref.internalRef))
 end MutRef
 
 def borrowMut[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}, @caps.use WriteCap^](
@@ -62,16 +50,16 @@ def borrowMut[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner
 )(
   using ctx: Context[WriteCap]^{ctxOwner}
 ): (MutRef[T, newOwner], ValueHolder[newOwnerKey, MutRef[T, Owner]^{self}]) =
-  val (tag, internalRef, parents) = MutRef.unapply(self).get
-  (MutRef(internalRef.newUnique(tag), internalRef, ctx.getUnderOpRefs), ValueHolder(MutRef(tag, internalRef, parents)))
+  val (tag, internalRef) = MutRef.unapply(self).get
+  (MutRef(internalRef.newUnique(tag), internalRef), ValueHolder(MutRef(tag, internalRef)))
 
 def borrowImmut[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}, WriteCap^](
   self: MutRef[T, Owner]^
 )(
   using ctx: Context[WriteCap]^{ctxOwner}
 ): (ImmutRef[T, newOwner], ValueHolder[newOwnerKey, MutRef[T, Owner]^{self}]) =
-  val (tag, internalRef, parents) = MutRef.unapply(self).get
-  (ImmutRef(internalRef.newShared(tag), internalRef, ctx.getUnderOpRefs), ValueHolder(MutRef(tag, internalRef, parents)))
+  val (tag, internalRef) = MutRef.unapply(self).get
+  (ImmutRef(internalRef.newShared(tag), internalRef), ValueHolder(MutRef(tag, internalRef)))
 
 def write[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^, @caps.use WriteCap^](
   self: MutRef[T, Owner]^,
@@ -79,17 +67,8 @@ def write[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^,
 )(
   using ctx: Context[WriteCap]^{ctxOwner}
 ): S =
-  val (tag, internalRef, parents) = MutRef.unapply(self).get
-
-  parents.foreach(_ match
-    case ref: ImmutRef[?, ?] => writeCheck(ref)
-    case ref: MutRef[?, ?] => writeCheck(ref)
-  )
-  ctx.push(MutRef(tag, internalRef, parents).asInstanceOf[Ref])
-  try
-    internalRef.write(tag, writeAction(using ctx))
-  finally
-    ctx.pop()
+  val (tag, internalRef) = MutRef.unapply(self).get
+  internalRef.write(tag, writeAction(using ctx))
 
 def writeWithLinearArg[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^, LinearArgType <: scinear.Linear, @caps.use WriteCap^](
   self: MutRef[T, Owner]^,
@@ -98,24 +77,15 @@ def writeWithLinearArg[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity 
 )(
   using ctx: Context[WriteCap]^{ctxOwner}
 ): S =
-  val (tag, internalRef, parents) = MutRef.unapply(self).get
-
-  parents.foreach(_ match
-    case ref: ImmutRef[?, ?] => writeCheck(ref)
-    case ref: MutRef[?, ?] => writeCheck(ref)
-  )
-  ctx.push(MutRef(tag, internalRef, parents).asInstanceOf[Ref])
-  try
-    internalRef.writeWithLinearArg[S, LinearArgType](tag, linearArg, writeAction(using ctx))
-  finally
-    ctx.pop()
+  val (tag, internalRef) = MutRef.unapply(self).get
+  internalRef.writeWithLinearArg[S, LinearArgType](tag, linearArg, writeAction(using ctx))
 
 private[imem] def readCheck[T, Owner^](self: MutRef[T, Owner]): Unit =
   // FIXME: It is possible that the parents are not sufficient to guarantee safety.
   // This means that this function has to call checks on parents as well.
-  val (tag, internalRef, parents) = MutRef.unapply(self).get
+  val (tag, internalRef) = MutRef.unapply(self).get
   internalRef.readCheck(tag)
 
 private[imem] def writeCheck[T, Owner^](self: MutRef[T, Owner]): Unit =
-  val (tag, internalRef, parents) = MutRef.unapply(self).get
+  val (tag, internalRef) = MutRef.unapply(self).get
   internalRef.useCheck(tag)
