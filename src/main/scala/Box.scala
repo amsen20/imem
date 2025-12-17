@@ -24,7 +24,7 @@ class Box[T, @caps.use Owner^](
   private [imem] val internalRef: InternalRef[T]
 ) extends scinear.Linear
 
-object Box:
+private[imem] object Box:
   private [imem] def unapply[T, Owner^](
     box: Box[T, Owner]^
   ): Option[(InternalRef[T]#Tag, InternalRef[T])] =
@@ -83,27 +83,24 @@ def swapBox[@scinear.HideLinearity T, @caps.use Owner^, @caps.use OtherOwner^, c
   (newBoxWithInternals(selfTag, selfRef), newBoxWithInternals(otherTag, otherRef))
 
 @throws(classOf[IllegalStateException])
-def moving[@scinear.HideLinearity T, Owner^, ctxOwner^, @scinear.HideLinearity S, @caps.use WriteCap^](
+def derefForMoving[@scinear.HideLinearity T, Owner^, ctxOwner^, @scinear.HideLinearity S, @caps.use WriteCap^](
   self: Box[T, Owner]^,
-  movingAction: MovingContext[{Owner}] ?->{Owner, ctxOwner, WriteCap} T^ ->{Owner, ctxOwner, WriteCap} S
+  moveAction: T^ ->{Owner, ctxOwner, WriteCap} S
 )(using ctx: Context[WriteCap]^{ctxOwner}): S =
   ctx.getUnderOpRefs.foreach(_ match
     case ref: ImmutRef[?, ?] => writeCheck(ref)
     case ref: MutRef[?, ?] => writeCheck(ref)
   )
 
-  val movingContext = new MovingContext[{Owner}]
   val (tag, ref) = Box.unapply(self).get
 
   ref.useCheck(tag)
 
-  movingAction(using movingContext)(ref.unsafeGet())
+  moveAction(ref.unsafeGet())
 
 @throws(classOf[IllegalStateException])
 def moveBox[@scinear.HideLinearity T, Owner^, NewOwner^](
   self: Box[T, Owner]^
-)(
-  using movingContext: MovingContext[{NewOwner}]
 ): Box[T, NewOwner] =
   val (tag, ref) = Box.unapply(self).get
   newBoxWithInternals(tag, ref)
@@ -117,7 +114,7 @@ def readBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^, WriteCap^]
   val lf = Lifetime[{ctx, Owner}]()
   val (ref, holder) = borrowImmutBox[T, Owner, {ctx}, lf.Key, lf.Owners, WriteCap](box)(using ctx)
   val res = read[T, lf.Owners, S, ctxOwner, WriteCap](ref, readAction)(using ctx)
-  val newBox = accessValue(lf.getKey(), holder)
+  val newBox = unlockHolder(lf.getKey(), holder)
   (newBox, res)
 
 // TODO: Should redefine modification
@@ -129,7 +126,7 @@ def writeBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^, @caps.use
   val lf = Lifetime[{ctx, Owner}]()
   val (ref, holder) = borrowMutBox[T, Owner, {ctx}, lf.Key, lf.Owners, WriteCap](box)(using ctx)
   val res = write[T, lf.Owners, S, ctxOwner, WriteCap](ref, writeAction)(using ctx)
-  val newBox = accessValue(lf.getKey(), holder)
+  val newBox = unlockHolder(lf.getKey(), holder)
   (newBox, res)
 
 def newBoxFromBackground[@scinear.HideLinearity T, WriteCap^](value: T)(using ctx: Context[WriteCap]^): Box[T, {ctx}] =
@@ -142,11 +139,11 @@ def newBoxFromBackground[@scinear.HideLinearity T, WriteCap^](value: T)(using ct
   *
   * TODO: Make sure that the `Owner` captures the `context` as well.
   */
-def newBoxExplicit[@scinear.HideLinearity T, Owner^](value: T): Box[T, Owner] =
-  val (newRef, newTag) = InternalRef.newWithTag(value)
+def newBoxExplicit[@scinear.HideLinearity T, Owner^](resource: T): Box[T, Owner] =
+  val (newRef, newTag) = InternalRef.newWithTag(resource)
   newBoxWithInternals(newTag, newRef)
 
-def newBoxWithInternals[@scinear.HideLinearity T, Owner^](
+private [imem] def newBoxWithInternals[@scinear.HideLinearity T, Owner^](
   tag: InternalRef[T]#Tag,
   internalRef: InternalRef[T]
 ): Box[T, Owner] =

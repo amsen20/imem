@@ -16,7 +16,9 @@ def borrowImmut[@scinear.HideLinearity T, Owner^, WriteCap^](
   self: ImmutRef[T, Owner]^
 )(
   using ctx: Context[WriteCap]^
-): ImmutRef[T, {ctx, Owner}]^{self} =
+  // TODO: Check if not capturing `self` in return type is ok.
+  // TODO: Should there be a `newOwner` or `{ctx, Owner}` is better?
+): ImmutRef[T, {ctx, Owner}] =
   ImmutRef(self.internalRef.newShared(self.tag), self.internalRef, ctx.getUnderOpRefs)
 
 def read[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^, WriteCap^](
@@ -48,8 +50,8 @@ class MutRef[T, Owner^](
   private[imem] val parents: List[Ref]
 ) extends scinear.Linear
 
-object MutRef:
-  def unapply[T, Owner^](
+private[imem] object MutRef:
+  private[imem] def unapply[T, Owner^](
     ref: MutRef[T, Owner]^
   ): Option[(InternalRef[T]#Tag, InternalRef[T], List[Ref])] =
     Some((ref.tag, ref.internalRef, ref.parents))

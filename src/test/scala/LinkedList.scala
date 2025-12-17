@@ -33,14 +33,16 @@ end Node
 def isEmptyList[T, @caps.use O1^, @caps.use O2^, @caps.use O3^, WriteCap^](
   self: imem.ImmutRef[LinkedList[T, O1], O2]
 )(
+  // TODO: Check if `^{O3}` can be moved to the `Context` type parameters.
   using ctx: imem.Context[WriteCap]^{O3}
 ): Boolean =
   imem.read[LinkedList[T, O1], O2, Boolean, O3, WriteCap](self,
       list =>
         val lf = imem.Lifetime[{O3, O2, O1}]()
+        // TODO: Divide inferrable and non-inferrable type parameters, so the following line is less verbose.
         val (headRef, listHolder) = imem.borrowImmutBox[Link[T, O1], O1, {O3, O2}, lf.Key, lf.Owners, WriteCap](list.head)
         val res = imem.read[Link[T, O1], lf.Owners, Boolean, {O3, O2}, WriteCap](headRef, head => head.isEmpty)
-        imem.accessValue(lf.getKey(), listHolder)
+        imem.unlockHolder(lf.getKey(), listHolder)
         res
   )
 
@@ -61,7 +63,7 @@ def push[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use Write
     val lf = imem.Lifetime[{O3, O2, O1}]()
     val (listRef, selfHolder) = imem.borrowImmut[LinkedList[T, O1], O2, {O3, O2}, lf.Key, lf.Owners, {WriteCap}](self)
     val res = isEmptyList(listRef)
-    (res, imem.accessValue(lf.getKey(), selfHolder))
+    (res, imem.unlockHolder(lf.getKey(), selfHolder))
 
   val newNode = Node(imem.newBoxExplicit[T, O1](elem), imem.newBoxExplicit[Link[T, O1], O1](None))
   if isListEmpty then
@@ -95,11 +97,11 @@ def push[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use Write
                   ctx ?=> (node, tempHead2) =>
                     imem.swapBox[Link[T, O1], {O1}, {O1}, {ctx}, {WriteCap}](node.next, tempHead2)
                 )
-                imem.accessValue(lfInner.getKey(), nodeBoxHolder) // FIXME: Just consuming it
+                imem.unlockHolder(lfInner.getKey(), nodeBoxHolder) // FIXME: Just consuming it
               nodeBox2
             )
 
-          imem.accessValue(lf.getKey(), listHeadHolder) // FIXME: Just consuming it
+          imem.unlockHolder(lf.getKey(), listHeadHolder) // FIXME: Just consuming it
         listHead2
     )
 
@@ -120,7 +122,7 @@ def pop[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use O4^ >:
     val lf = imem.Lifetime[{O3, O2, O1}]()
     val (listRef, selfHolder) = imem.borrowImmut[LinkedList[T, O1], O2, {O3, O2}, lf.Key, lf.Owners, {WriteCap}](self)
     val res = isEmptyList(listRef)
-    (res, imem.accessValue(lf.getKey(), selfHolder))
+    (res, imem.unlockHolder(lf.getKey(), selfHolder))
 
   if isListEmpty then
     self2
@@ -138,7 +140,7 @@ def pop[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use O4^ >:
           listHead // FIXME: just to consume it
           newCurrentHead
       )
-      (res, imem.accessValue(lf.getKey(), selfHolder))
+      (res, imem.unlockHolder(lf.getKey(), selfHolder))
 
     // NOTE: A lot of things can go (and might) go wrong here.
     // It's good to make a `ShouldNotWork` test out of each of them.
@@ -169,12 +171,12 @@ def pop[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use O4^ >:
                     ctx ?=> (node, list) => imem.swapBox[Link[T, O1], {O1}, {O1}, {ctx}, {WriteCap}](node.next, list.head)
                   )
               )
-              imem.accessValue(lfInner.getKey(), nodeBoxHolder) // FIXME: Just consuming it
+              imem.unlockHolder(lfInner.getKey(), nodeBoxHolder) // FIXME: Just consuming it
             nodeBox2
       )
-      imem.accessValue(lf.getKey(), currentHeadHolder)
+      imem.unlockHolder(lf.getKey(), currentHeadHolder)
 
-    imem.moving[Link[T, O1], O4, {O3}, Option[imem.Box[T, O4]], {WriteCap}](
+    imem.derefForMoving[Link[T, O1], O4, {O3}, Option[imem.Box[T, O4]], {WriteCap}](
       currentHead2,
       head =>
         if head.isEmpty then
@@ -182,7 +184,7 @@ def pop[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use O4^ >:
         else
           val nodeBox = head.get
           val movedNodeBox = imem.moveBox[Node[T, O1], O1, O4](nodeBox)
-          val res = imem.moving[Node[T, O1], O4, {O3}, imem.Box[T, O4], {WriteCap}](
+          val res = imem.derefForMoving[Node[T, O1], O4, {O3}, imem.Box[T, O4], {WriteCap}](
             movedNodeBox,
             node => imem.moveBox[T, O1, O4](node.elem)
           )

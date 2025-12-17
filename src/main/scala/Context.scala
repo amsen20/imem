@@ -7,6 +7,8 @@ import language.experimental.captureChecking
   * them happen in runtime.
   *
   * NOTE: This is a temporary solution and will be removed/replaced throughout time.
+  *
+  * TODO: Instead of capturing owners, there should be a `Owners` type parameter that captures them. This type param should be accessible from outside.
   */
 class Context[WriteCap^]:
   private var UnderOpRefs: List[Ref] = List.empty
@@ -23,5 +25,3 @@ def withOwnership[T](block: [@caps.use WriteCap^] => Context[WriteCap]^ => T): T
   Object().asInstanceOf[T]
   val ctx = Context[{writeCap}]()
   block[{writeCap}](ctx)
-
-class MovingContext[Owner^]
