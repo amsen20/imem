@@ -6,7 +6,7 @@ class ResourceShouldWorkSuite extends munit.FunSuite:
       // A way to express a mutable integer.
       case class BoxedInteger(var value: Int)
       val lf = new imem.Lifetime[{ctx}]()
-      val valueBox = imem.newBoxExplicit[BoxedInteger, lf.Owners](BoxedInteger(42))
+      val valueBox = imem.newBox[BoxedInteger, lf.Owners](BoxedInteger(42))
 
       val (nodeBox2, res) = imem.readBox[BoxedInteger, lf.Owners, Boolean, {ctx}, WriteCap](valueBox, _ == BoxedInteger(42))(using ctx)
       assert(res)
@@ -24,7 +24,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
   test("basics: push and pop") {
     def body[@caps.use WriteCap^](ctx: imem.Context[WriteCap]^): Unit =
       val lf = imem.Lifetime[{ctx}]()
-      val list = imem.newBoxExplicit[LinkedList[Int, lf.Owners], lf.Owners](newLinkedListExplicit[Int, lf.Owners])
+      val list = imem.newBox[LinkedList[Int, lf.Owners], lf.Owners](newLinkedListExplicit[Int, lf.Owners])
 
       // Check empty list behaves right
       val list2 =

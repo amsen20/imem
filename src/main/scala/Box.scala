@@ -122,7 +122,7 @@ def newBoxFromBackground[@scinear.HideLinearity T, WriteCap^](value: T)(using ct
   *
   * TODO: Make sure that the `Owner` captures the `context` as well.
   */
-def newBoxExplicit[@scinear.HideLinearity T, Owner^](resource: T): Box[T, Owner] =
+def newBox[@scinear.HideLinearity T, Owner^](resource: T): Box[T, Owner] =
   val (newRef, newTag) = InternalRef.newWithTag(resource)
   newBoxWithInternals(newTag, newRef)
 

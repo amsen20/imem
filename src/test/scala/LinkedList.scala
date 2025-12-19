@@ -1,7 +1,7 @@
 import language.experimental.captureChecking
 
 class LinkedList[T, O1^](
-  val _head: imem.Box[Link[T, O1], O1] = imem.newBoxExplicit[Link[T, O1], O1](None)
+  val _head: imem.Box[Link[T, O1], O1] = imem.newBox[Link[T, O1], O1](None)
 ) extends scinear.Linear:
   // TODO: Make box capability and then there is no need for this field and also capturing `this`.
   val head: imem.Box[Link[T, O1], O1]^{this} = _head
@@ -65,20 +65,20 @@ def push[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use Write
     val res = isEmptyList(listRef)
     (res, imem.unlockHolder(lf.getKey(), selfHolder))
 
-  val newNode = Node(imem.newBoxExplicit[T, O1](elem), imem.newBoxExplicit[Link[T, O1], O1](None))
+  val newNode = Node(imem.newBox[T, O1](elem), imem.newBox[Link[T, O1], O1](None))
   if isListEmpty then
     imem.writeWithLinearArg[LinkedList[T, O1], {O2}, Unit, {O3}, newNode.type, {WriteCap}](
       self2,
       newNode,
       ctx ?=> (list, newNode) =>
-        imem.setBox[Link[T, O1], {O1}, {ctx}, {WriteCap}](list.head, Some(imem.newBoxExplicit(newNode)))
+        imem.setBox[Link[T, O1], {O1}, {ctx}, {WriteCap}](list.head, Some(imem.newBox(newNode)))
     )
   else
     imem.writeWithLinearArg[LinkedList[T, O1], {O2}, Unit, {O3}, newNode.type, {WriteCap}](
       self2,
       newNode,
       (list, newNode) =>
-        val tempHead = imem.newBoxExplicit[Link[T, O1], O1](Some(imem.newBoxExplicit[Node[T, O1], O1](newNode)))
+        val tempHead = imem.newBox[Link[T, O1], O1](Some(imem.newBox[Node[T, O1], O1](newNode)))
         val (tempHead2, listHead) = imem.swapBox(tempHead, list.head)
         val listHead2 =
           val lf = imem.Lifetime[{O3, O2, O1}]()
@@ -131,7 +131,7 @@ def pop[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use O4^ >:
     val (currentHead, self3) =
       val lf = imem.Lifetime[{O3, O4}]()
       val (listRef, selfHolder) = imem.borrowMut[LinkedList[T, O1], O2, {O3, O2}, lf.Key, lf.Owners, {WriteCap}](self2)
-      val currentHead = imem.newBoxExplicit[Link[T, O1], O4](None)
+      val currentHead = imem.newBox[Link[T, O1], O4](None)
       val res = imem.writeWithLinearArg[LinkedList[T, O1], lf.Owners, imem.Box[Link[T, O1], O4], {O3}, currentHead.type, {WriteCap}](
         listRef,
         currentHead,
