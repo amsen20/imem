@@ -10,12 +10,12 @@ class ImmutRef[T, Owner^](
   private[imem] val internalRef: InternalRef[T]
 )
 
-def borrowImmut[@scinear.HideLinearity T, Owner^, newOwner^ >: {Owner}, WriteCap^](
+def borrowImmut[@scinear.HideLinearity T, Owner^, newOwnerKey, newOwner^ >: {Owner}, WriteCap^](
   self: ImmutRef[T, Owner]^
 )(
   using ctx: Context[WriteCap]
   // TODO: Check if not capturing `self` in return type is ok.
-): ImmutRef[T, {Owner}] =
+): ImmutRef[T, newOwner] =
   ImmutRef(self.internalRef.newShared(self.tag), self.internalRef)
 
 def read[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^, WriteCap^](
