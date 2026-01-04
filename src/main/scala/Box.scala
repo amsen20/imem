@@ -2,16 +2,16 @@ package imem
 
 import language.experimental.captureChecking
 
-def borrowImmutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}, WriteCap^](
+def borrowImmutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}, WC^, MC^](
   tag: InternalRef[T]#Tag,
   internalRef: InternalRef[T]
-)(using ctx: Context[WriteCap]^{ctxOwner}): ImmutRef[T, newOwner] =
+)(using ctx: Context[WC, MC]^{ctxOwner}): ImmutRef[T, newOwner] =
   ImmutRef(internalRef.newShared(tag), internalRef)
 
-def borrowMutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}, WriteCap^](
+def borrowMutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}, WC^, MC^](
   tag: InternalRef[T]#Tag,
   internalRef: InternalRef[T]
-)(using ctx: Context[WriteCap]^{ctxOwner}): MutRef[T, newOwner] =
+)(using ctx: Context[WC, MC]^{ctxOwner}): MutRef[T, newOwner] =
   MutRef(internalRef.newUnique(tag), internalRef)
 
 /**
@@ -32,19 +32,19 @@ private[imem] object Box:
 end Box
 
 // TODO: Separate the parameters that the compiler can infer from the ones that it cannot.
-def borrowImmutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}, WriteCap^](
+def borrowImmutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}, WC^, MC^](
   self: Box[T, Owner]^
 )(
-  using ctx: Context[WriteCap]^{ctxOwner}
+  using ctx: Context[WC, MC]^{ctxOwner}
   // TODO: Make sure not capturing `self` does not break anything.
 ): (ImmutRef[T, newOwner], ValueHolder[newOwnerKey, Box[T, Owner]^{self}]) =
   val (tag, ref) = Box.unapply(self).get
   (borrowImmutInternal(tag, ref), ValueHolder(newBoxWithInternals(tag, ref)))
 
-def borrowMutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}, @caps.use WriteCap^](
+def borrowMutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}, @caps.use WC^, MC^](
   self: Box[T, Owner]^
 )(
-  using ctx: Context[WriteCap]^{ctxOwner}
+  using ctx: Context[WC, MC]^{ctxOwner}
   // TODO: Make sure not capturing `self` does not break anything.
 ): (MutRef[T, newOwner], ValueHolder[newOwnerKey, Box[T, Owner]^{self}]) =
   val (tag, ref) = Box.unapply(self).get
@@ -52,7 +52,7 @@ def borrowMutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOw
 
 // TODO: I guess it's possible to remove all the annotations.
 @throws(classOf[IllegalStateException])
-def setBox[@scinear.HideLinearity T, Owner^, ctxOwner^, @caps.use WriteCap^](self: Box[T, Owner]^, resource: T)(using ctx: Context[WriteCap]^{ctxOwner}): Box[T, Owner]^{self} =
+def setBox[@scinear.HideLinearity T, Owner^, ctxOwner^, @caps.use WC^, MC^](self: Box[T, Owner]^, resource: T)(using ctx: Context[WC, MC]^{ctxOwner}): Box[T, Owner]^{self} =
   // TODO: Somehow provide some interfaces, that will call the actual memory allocation and deallocation functions.
   val (tag, ref) = Box.unapply(self).get
   ref.useCheck(tag)
@@ -62,19 +62,19 @@ def setBox[@scinear.HideLinearity T, Owner^, ctxOwner^, @caps.use WriteCap^](sel
   newBoxWithInternals(tag, ref)
 
 @throws(classOf[IllegalStateException])
-def swapBox[@scinear.HideLinearity T, @caps.use Owner^, @caps.use OtherOwner^, ctxOwner^, @caps.use WriteCap^](
+def swapBox[@scinear.HideLinearity T, @caps.use Owner^, @caps.use OtherOwner^, ctxOwner^, @caps.use WC^, MC^](
   self: Box[T, Owner]^, other: Box[T, OtherOwner]^
-)(using ctx: Context[WriteCap]^{ctxOwner}): (Box[T, Owner]^{self}, Box[T, OtherOwner]^{other}) =
+)(using ctx: Context[WC, MC]^{ctxOwner}): (Box[T, Owner]^{self}, Box[T, OtherOwner]^{other}) =
   val (selfTag, selfRef) = Box.unapply(self).get
   val (otherTag, otherRef) = Box.unapply(other).get
   InternalRef.swap(selfTag, selfRef, otherTag, otherRef)
   (newBoxWithInternals(selfTag, selfRef), newBoxWithInternals(otherTag, otherRef))
 
 @throws(classOf[IllegalStateException])
-def derefForMoving[@scinear.HideLinearity T, Owner^, ctxOwner^, @scinear.HideLinearity S, @caps.use WriteCap^](
+def derefForMoving[@scinear.HideLinearity T, Owner^, ctxOwner^, @scinear.HideLinearity S, WC^, @caps.use MC^](
   self: Box[T, Owner]^,
-  moveAction: T^ ->{Owner, ctxOwner, WriteCap} S
-)(using ctx: Context[WriteCap]^{ctxOwner}): S =
+  moveAction: T^ ->{Owner, ctxOwner, WC, MC} S
+)(using ctx: Context[WC, MC]^{ctxOwner}): S =
   val (tag, ref) = Box.unapply(self).get
 
   ref.useCheck(tag)
@@ -82,37 +82,37 @@ def derefForMoving[@scinear.HideLinearity T, Owner^, ctxOwner^, @scinear.HideLin
   moveAction(ref.unsafeGet())
 
 @throws(classOf[IllegalStateException])
-def moveBox[@scinear.HideLinearity T, Owner^, NewOwner^](
+def moveBox[@scinear.HideLinearity T, Owner^, NewOwner^, WC^, @caps.use MC^](
   self: Box[T, Owner]^
-): Box[T, NewOwner] =
+)(using ctx: Context[WC, MC]^): Box[T, NewOwner] =
   val (tag, ref) = Box.unapply(self).get
   newBoxWithInternals(tag, ref)
 
-def readBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^, WriteCap^](
+def readBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^, WC^, MC^](
   box: Box[T, Owner]^,
-  readAction: Context[WriteCap]^ ?-> T^ -> S
+  readAction: Context[WC, MC]^ ?-> T^ -> S
 )(
-  using ctx: Context[WriteCap]^{ctxOwner}
+  using ctx: Context[WC, MC]^{ctxOwner}
 ): (Box[T, Owner]^{box}, S) =
   val lf = Lifetime[{ctx, Owner}]()
-  val (ref, holder) = borrowImmutBox[T, Owner, {ctx}, lf.Key, lf.Owners, WriteCap](box)(using ctx)
-  val res = read[T, lf.Owners, S, ctxOwner, WriteCap](ref, readAction)(using ctx)
+  val (ref, holder) = borrowImmutBox[T, Owner, {ctx}, lf.Key, lf.Owners, WC, MC](box)(using ctx)
+  val res = read[T, lf.Owners, S, ctxOwner, WC, MC](ref, readAction)(using ctx)
   val newBox = unlockHolder(lf.getKey(), holder)
   (newBox, res)
 
 // TODO: Should redefine modification
-def writeBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^, @caps.use WriteCap^](
-  box: Box[T, Owner]^, writeAction: Context[WriteCap]^ ?-> T^ -> S
+def writeBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^, @caps.use WC^, MC^](
+  box: Box[T, Owner]^, writeAction: Context[WC, MC]^ ?-> T^ -> S
 )(
-  using ctx: Context[WriteCap]^{ctxOwner}
+  using ctx: Context[WC, MC]^{ctxOwner}
 ): (Box[T, Owner]^{box}, S) =
   val lf = Lifetime[{ctx, Owner}]()
-  val (ref, holder) = borrowMutBox[T, Owner, {ctx}, lf.Key, lf.Owners, WriteCap](box)(using ctx)
-  val res = write[T, lf.Owners, S, ctxOwner, WriteCap](ref, writeAction)(using ctx)
+  val (ref, holder) = borrowMutBox[T, Owner, {ctx}, lf.Key, lf.Owners, WC, MC](box)(using ctx)
+  val res = write[T, lf.Owners, S, ctxOwner, WC, MC](ref, writeAction)(using ctx)
   val newBox = unlockHolder(lf.getKey(), holder)
   (newBox, res)
 
-def newBoxFromBackground[@scinear.HideLinearity T, WriteCap^](value: T)(using ctx: Context[WriteCap]^): Box[T, {ctx}] =
+def newBoxFromBackground[@scinear.HideLinearity T, WC^, MC^](value: T)(using ctx: Context[WC, MC]^): Box[T, {ctx}] =
   val (newRef, newTag) = InternalRef.newWithTag(value)
   newBoxWithInternals(newTag, newRef)
 

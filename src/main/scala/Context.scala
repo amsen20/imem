@@ -2,10 +2,10 @@ package imem
 
 import language.experimental.captureChecking
 
-class Context[WriteCap^]
+class Context[WC^, MC^]
 
-def withOwnership[T](block: [@caps.use WriteCap^] => Context[WriteCap]^ => T): T =
-  object writeCap extends caps.Capability
-  Object().asInstanceOf[T]
-  val ctx = Context[{writeCap}]()
-  block[{writeCap}](ctx)
+def withOwnership[T](block: [@caps.use WC^, MC^] => Context[WC, MC]^ => T): T =
+  object WC extends caps.Capability
+  object MC extends caps.Capability
+  val ctx = Context[{WC}, {MC}]()
+  block[{WC}, {MC}](ctx)
