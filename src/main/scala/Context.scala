@@ -9,7 +9,7 @@ import language.experimental.captureChecking
   * The other option is preferable because it does not allow the user to change the owners due to
   * covariance or contravariant.
   */
-class Context[WC^, MC^]
+class Context[WC^, MC^] private[imem] ()
 
 def withOwnership[T](block: [@caps.use WC^, MC^] => Context[WC, MC]^ => T): T =
   object WC extends caps.Capability
