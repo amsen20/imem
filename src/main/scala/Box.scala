@@ -26,7 +26,8 @@ private[imem] object Box:
     Some((box.tag, box.internalRef))
 end Box
 
-def borrowImmutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, WC^, MC^]()[newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
+def borrowImmutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, WC^, MC^]( // Inferrable
+)[newOwnerKey, newOwner^ >: {ctxOwner, Owner}]( // Non-inferrable
   self: Box[T, Owner]^
 )(
   using ctx: Context[WC, MC]^{ctxOwner}
@@ -34,7 +35,8 @@ def borrowImmutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, WC^, MC^]()[newO
   val (tag, ref) = Box.unapply(self).get
   (borrowImmutInternal(tag, ref), ValueHolder(newBoxWithInternals(tag, ref)))
 
-def borrowMutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}, @caps.use WC^, MC^](
+def borrowMutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, @caps.use WC^, MC^]( // Inferrable
+)[newOwnerKey, newOwner^ >: {ctxOwner, Owner}]( // Non-inferrable
   self: Box[T, Owner]^
 )(
   using ctx: Context[WC, MC]^{ctxOwner}
@@ -97,7 +99,7 @@ def writeBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^, @caps.use
   using ctx: Context[WC, MC]^{ctxOwner}
 ): (Box[T, Owner]^{box}, S) =
   val lf = Lifetime[{ctx, Owner}]()
-  val (ref, holder) = borrowMutBox[T, Owner, {ctx}, lf.Key, lf.Owners, WC, MC](box)(using ctx)
+  val (ref, holder) = borrowMutBox()[lf.Key, lf.Owners](box)
   val res = write[T, lf.Owners, S, ctxOwner, WC, MC](ref, writeAction)(using ctx)
   val newBox = unlockHolder(lf.getKey(), holder)
   (newBox, res)

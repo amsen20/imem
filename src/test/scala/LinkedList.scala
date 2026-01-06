@@ -79,7 +79,7 @@ def push[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use WC^, 
         val (tempHead2, listHead) = imem.swapBox(tempHead, list.head)
         val listHead2 =
           val lf = imem.Lifetime[{O3, O2, O1}]()
-          val (listHeadRef, listHeadHolder) = imem.borrowMutBox[Link[T, O1], O1, {O3, O2}, lf.Key, lf.Owners, {WC}, {MC}](listHead)
+          val (listHeadRef, listHeadHolder) = imem.borrowMutBox()[lf.Key, lf.Owners](listHead)
           imem.writeWithLinearArg[Link[T, O1], lf.Owners, Unit, {O3, O2}, tempHead2.type, {WC}, {MC}](
             listHeadRef,
             tempHead2,
@@ -87,7 +87,7 @@ def push[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use WC^, 
               val nodeBox = head.get
               val nodeBox2 =
                 val lfInner = imem.Lifetime[{ctx, O1}]()
-                val (nodeRef, nodeBoxHolder) = imem.borrowMutBox[Node[T, O1], O1, {ctx}, lfInner.Key, lfInner.Owners, {WC}, {MC}](nodeBox)
+                val (nodeRef, nodeBoxHolder) = imem.borrowMutBox()[lfInner.Key, lfInner.Owners](nodeBox)
                 imem.writeWithLinearArg[Node[T, O1], lfInner.Owners, Unit, {ctx}, tempHead2.type, {WC}, {MC}](
                   nodeRef,
                   tempHead2,
@@ -143,7 +143,7 @@ def pop[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use O4^ >:
     // It's good to make a `ShouldNotWork` test out of each of them.
     val currentHead2 =
       val lf = imem.Lifetime[{O3, O4}]()
-      val (currentHeadRef, currentHeadHolder) = imem.borrowMutBox[Link[T, O1], O4, {O3, O2}, lf.Key, lf.Owners, {WC}, {MC}](currentHead)
+      val (currentHeadRef, currentHeadHolder) = imem.borrowMutBox()[lf.Key, lf.Owners](currentHead)
       imem.writeWithLinearArg[Link[T, O1], lf.Owners, Unit, {O3}, self3.type, {WC}, {MC}](
         currentHeadRef,
         self3,
@@ -157,7 +157,7 @@ def pop[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use O4^ >:
               // TODO: The type parameter should be inferred from the context.
               val lfInner = imem.Lifetime[{ctx, O1}]()
               // ?: What will happen if `nodeRef` is leaked?
-              val (nodeRef, nodeBoxHolder) = imem.borrowMutBox[Node[T, O1], O1, {ctx}, lfInner.Key, lfInner.Owners, {WC}, {MC}](nodeBox)
+              val (nodeRef, nodeBoxHolder) = imem.borrowMutBox()[lfInner.Key, lfInner.Owners](nodeBox)
               val res = imem.writeWithLinearArg[LinkedList[T, O1], {O2}, Unit, {ctx}, nodeRef.type, {WC}, {MC}](
                 self3,
                 nodeRef,
@@ -236,7 +236,7 @@ def peekMut[T, @caps.use O1^, O2^, O3^, O4Key, @caps.use O4^ >: {O1, O2, O3}, @c
 ): Option[imem.MutRef[T, O4]] =
   imem.write[LinkedList[T, O1], O2, Option[imem.MutRef[T, O4]], {O3, O2}, {WC}, {MC}](self,
     list =>
-      val (headRef, listHeadHolder) = imem.borrowMutBox[Link[T, O1], O1, {O3, O2}, O4Key, O4, {WC}, {MC}](list.head)
+      val (headRef, listHeadHolder) = imem.borrowMutBox()[O4Key, O4](list.head)
       listHeadHolder // FIXME: Just to consume it
       imem.write[Link[T, O1], O4, Option[imem.MutRef[T, O4]], {O3, O2}, {WC}, {MC}](headRef,
         (ctx: imem.Context[{WC}, {MC}]^{O4}) ?=> head =>
@@ -244,11 +244,11 @@ def peekMut[T, @caps.use O1^, O2^, O3^, O4Key, @caps.use O4^ >: {O1, O2, O3}, @c
             None
           else
             val nodeBox = head.get
-            val (nodeRef, nodeBoxHolder) = imem.borrowMutBox[Node[T, O1], O1, {O4}, O4Key, O4, {WC}, {MC}](nodeBox)
+            val (nodeRef, nodeBoxHolder) = imem.borrowMutBox()[O4Key, O4](nodeBox)
             nodeBoxHolder // FIXME: Just to consume it
             val res = imem.write[Node[T, O1], O4, imem.MutRef[T, O4], {O4}, {WC}, {MC}](
               nodeRef,
-              node => imem.borrowMutBox[T, O1, {O4}, O4Key, O4, {WC}, {MC}](node.elem)._1
+              (ctx: imem.Context[{WC}, {MC}]^{O4}) ?=> node => imem.borrowMutBox()[O4Key, O4](node.elem)._1
             )
             Some(res)
       )

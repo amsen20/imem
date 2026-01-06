@@ -29,27 +29,27 @@ class ListShouldWorkSuite extends munit.FunSuite:
       // Check empty list behaves right
       val list2 =
         val InnerLf = new imem.Lifetime[{ctx, lf}]()
-        val (listRef, listHolder) = imem.borrowMutBox[LinkedList[Int, lf.Owners], lf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list)(using ctx)
+        val (listRef, listHolder) = imem.borrowMutBox()[InnerLf.Key, InnerLf.Owners](list)(using ctx)
         assertEquals(pop[Int, lf.Owners, InnerLf.Owners, {ctx}, InnerLf.Owners, {WC}, {MC}](listRef)(using ctx).isEmpty, true)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
 
       // Populate list
       val list3 =
         val InnerLf = new imem.Lifetime[{ctx, lf}]()
-        val (listRef, listHolder) = imem.borrowMutBox[LinkedList[Int, lf.Owners], lf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list2)(using ctx)
+        val (listRef, listHolder) = imem.borrowMutBox()[InnerLf.Key, InnerLf.Owners](list2)(using ctx)
         push(listRef, 1)(using ctx)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
 
       val list4 =
         val InnerLf = new imem.Lifetime[{ctx, lf}]()
-        val (listRef, listHolder) = imem.borrowMutBox[LinkedList[Int, lf.Owners], lf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list3)(using ctx)
+        val (listRef, listHolder) = imem.borrowMutBox()[InnerLf.Key, InnerLf.Owners](list3)(using ctx)
         push(listRef, 2)(using ctx)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
 
       // Check normal removal
       val list5 =
         val InnerLf = new imem.Lifetime[{ctx, lf}]()
-        val (listRef, listHolder) = imem.borrowMutBox[LinkedList[Int, lf.Owners], lf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list4)(using ctx)
+        val (listRef, listHolder) = imem.borrowMutBox()[InnerLf.Key, InnerLf.Owners](list4)(using ctx)
         val poppedBox = pop[Int, lf.Owners, InnerLf.Owners, {ctx}, InnerLf.Owners, {WC}, {MC}](listRef)(using ctx).get
         assert(imem.readBox(poppedBox, _ == 2)(using ctx)._2)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
@@ -57,14 +57,14 @@ class ListShouldWorkSuite extends munit.FunSuite:
       // Push some more just to make sure nothing's corrupted
       val list6 =
         val InnerLf = new imem.Lifetime[{ctx, lf}]()
-        val (listRef, listHolder) = imem.borrowMutBox[LinkedList[Int, lf.Owners], lf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list5)(using ctx)
+        val (listRef, listHolder) = imem.borrowMutBox()[InnerLf.Key, InnerLf.Owners](list5)(using ctx)
         push(listRef, 3)(using ctx)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
 
       // Check normal removal
       val list7 =
         val InnerLf = new imem.Lifetime[{ctx, lf}]()
-        val (listRef, listHolder) = imem.borrowMutBox[LinkedList[Int, lf.Owners], lf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list6)(using ctx)
+        val (listRef, listHolder) = imem.borrowMutBox()[InnerLf.Key, InnerLf.Owners](list6)(using ctx)
         val poppedBox = pop[Int, lf.Owners, InnerLf.Owners, {ctx}, InnerLf.Owners, {WC}, {MC}](listRef)(using ctx).get
         assert(imem.readBox(poppedBox, _ == 3)(using ctx)._2)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
@@ -72,7 +72,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
       // Check exhaustion
       val list8 =
         val InnerLf = new imem.Lifetime[{ctx, lf}]()
-        val (listRef, listHolder) = imem.borrowMutBox[LinkedList[Int, lf.Owners], lf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list7)(using ctx)
+        val (listRef, listHolder) = imem.borrowMutBox()[InnerLf.Key, InnerLf.Owners](list7)(using ctx)
         val poppedBox = pop[Int, lf.Owners, InnerLf.Owners, {ctx}, InnerLf.Owners, {WC}, {MC}](listRef)(using ctx).get
         assert(imem.readBox(poppedBox, _ == 1)(using ctx)._2)
 
@@ -80,7 +80,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
         imem.unlockHolder(InnerLf.getKey(), listHolder)
       val list9 =
         val InnerLf = new imem.Lifetime[{ctx, lf}]()
-        val (listRef, listHolder) = imem.borrowMutBox[LinkedList[Int, lf.Owners], lf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list8)(using ctx)
+        val (listRef, listHolder) = imem.borrowMutBox()[InnerLf.Key, InnerLf.Owners](list8)(using ctx)
         assertEquals(pop[Int, lf.Owners, InnerLf.Owners, {ctx}, InnerLf.Owners, {WC}, {MC}](listRef)(using ctx).isEmpty, true)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
 
@@ -104,13 +104,13 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
       val list3 =
         val InnerLf = new imem.Lifetime[{ctx}]()
-        val (listRef, listHolder) = imem.borrowMutBox[LinkedList[BoxedInteger, {ctx}], {ctx}, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list2)(using ctx)
+        val (listRef, listHolder) = imem.borrowMutBox()[InnerLf.Key, InnerLf.Owners](list2)(using ctx)
         assertEquals(peekMut[BoxedInteger, {ctx}, InnerLf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](listRef)(using ctx).isEmpty, true)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
 
       val list4 =
         val InnerLf = new imem.Lifetime[{ctx}]()
-        val (listRef, listHolder) = imem.borrowMutBox[LinkedList[BoxedInteger, {ctx}], {ctx}, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list3)(using ctx)
+        val (listRef, listHolder) = imem.borrowMutBox()[InnerLf.Key, InnerLf.Owners](list3)(using ctx)
         push(listRef, BoxedInteger(1))(using ctx)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
 
@@ -125,7 +125,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
       val list6 =
         val InnerLf = new imem.Lifetime[{ctx}]()
-        val (listRef, listHolder) = imem.borrowMutBox[LinkedList[BoxedInteger, {ctx}], {ctx}, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list5)(using ctx)
+        val (listRef, listHolder) = imem.borrowMutBox()[InnerLf.Key, InnerLf.Owners](list5)(using ctx)
         val peekedMut = peekMut[BoxedInteger, {ctx}, InnerLf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](listRef)(using ctx).get
         imem.write[BoxedInteger, InnerLf.Owners, Unit, {ctx}, {WC}, {MC}](peekedMut, _.value = 42)(using ctx)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
