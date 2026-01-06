@@ -14,11 +14,6 @@ private[imem] def borrowMutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner
 )(using ctx: Context[WC, MC]^{ctxOwner}): MutRef[T, newOwner] =
   MutRef(internalRef.newUnique(tag), internalRef)
 
-/**
- * TODO: For now, `Owner` can be any capability, and it may open ways to exploits.
- * Should restrict it to a specific type only.
- * TODO: By removing the covariant what happens? Does it solve the early avoidance problem?
-*/
 class Box[T, @caps.use Owner^](
   private [imem] val tag: InternalRef[T]#Tag,
   private [imem] val internalRef: InternalRef[T]
@@ -31,12 +26,10 @@ private[imem] object Box:
     Some((box.tag, box.internalRef))
 end Box
 
-// TODO: Separate the parameters that the compiler can infer from the ones that it cannot.
 def borrowImmutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}, WC^, MC^](
   self: Box[T, Owner]^
 )(
   using ctx: Context[WC, MC]^{ctxOwner}
-  // TODO: Make sure not capturing `self` does not break anything.
 ): (ImmutRef[T, newOwner], ValueHolder[newOwnerKey, Box[T, Owner]^{self}]) =
   val (tag, ref) = Box.unapply(self).get
   (borrowImmutInternal(tag, ref), ValueHolder(newBoxWithInternals(tag, ref)))
@@ -45,7 +38,6 @@ def borrowMutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOw
   self: Box[T, Owner]^
 )(
   using ctx: Context[WC, MC]^{ctxOwner}
-  // TODO: Make sure not capturing `self` does not break anything.
 ): (MutRef[T, newOwner], ValueHolder[newOwnerKey, Box[T, Owner]^{self}]) =
   val (tag, ref) = Box.unapply(self).get
   (borrowMutInternal(tag, ref), ValueHolder(newBoxWithInternals(tag, ref)))
@@ -53,7 +45,6 @@ def borrowMutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOw
 // TODO: I guess it's possible to remove all the annotations.
 @throws(classOf[IllegalStateException])
 def setBox[@scinear.HideLinearity T, Owner^, ctxOwner^, @caps.use WC^, MC^](self: Box[T, Owner]^, resource: T)(using ctx: Context[WC, MC]^{ctxOwner}): Box[T, Owner]^{self} =
-  // TODO: Somehow provide some interfaces, that will call the actual memory allocation and deallocation functions.
   val (tag, ref) = Box.unapply(self).get
   ref.useCheck(tag)
 
@@ -100,7 +91,6 @@ def readBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^, WC^, MC^](
   val newBox = unlockHolder(lf.getKey(), holder)
   (newBox, res)
 
-// TODO: Should redefine modification
 def writeBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^, @caps.use WC^, MC^](
   box: Box[T, Owner]^, writeAction: Context[WC, MC]^ ?-> T^ -> S
 )(
@@ -116,12 +106,6 @@ def newBoxFromBackground[@scinear.HideLinearity T, WC^, MC^](value: T)(using ctx
   val (newRef, newTag) = InternalRef.newWithTag(value)
   newBoxWithInternals(newTag, newRef)
 
-/**
-  * TODO: Should make it private, then every time one wants to create a new `Box` has to somehow pass it a implicit
-  * owner.
-  *
-  * TODO: Make sure that the `Owner` captures the `context` as well.
-  */
 def newBox[@scinear.HideLinearity T, Owner^](resource: T): Box[T, Owner] =
   val (newRef, newTag) = InternalRef.newWithTag(resource)
   newBoxWithInternals(newTag, newRef)

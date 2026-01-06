@@ -1,9 +1,8 @@
 import language.experimental.captureChecking
 
 class LinkedList[T, O1^](
-  val _head: imem.Box[Link[T, O1], O1] = imem.newBox[Link[T, O1], O1](None)
+  _head: imem.Box[Link[T, O1], O1] = imem.newBox[Link[T, O1], O1](None)
 ) extends scinear.Linear:
-  // TODO: Make box capability and then there is no need for this field and also capturing `this`.
   val head: imem.Box[Link[T, O1], O1]^{this} = _head
 end LinkedList
 
@@ -15,8 +14,7 @@ def newLinkedListExplicit[T, O1^]: LinkedList[T, O1] =
 
 type Link[T, O1^] = Option[imem.Box[Node[T, O1], O1]]
 
-// TODO: Consider `_elem` instead of `val _elem`.
-class Node[T, O1^](val _elem: imem.Box[T, O1], val _next: imem.Box[Link[T, O1], O1]) extends scinear.Linear:
+class Node[T, O1^](_elem: imem.Box[T, O1], _next: imem.Box[Link[T, O1], O1]) extends scinear.Linear:
   val elem: imem.Box[T, O1]^{this} = _elem
   val next: imem.Box[Link[T, O1], O1]^{this} = _next
 end Node
