@@ -118,7 +118,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
         val InnerLf = new imem.Lifetime[{ctx}]()
         val (listRef, listHolder) = imem.borrowImmutBox()[InnerLf.Key, InnerLf.Owners](list4)(using ctx)
         val peekedBox = peek[BoxedInteger, {ctx}, InnerLf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](listRef)(using ctx).get
-        assertEquals(imem.read[BoxedInteger, InnerLf.Owners, Boolean, {ctx}, {WC}, {MC}](peekedBox, _.value == 1)(using ctx), true)
+        assertEquals(imem.read[BoxedInteger]()(peekedBox, _.value == 1)(using ctx), true)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
 
       // Modify the value using the mutable reference from peekMut
@@ -127,14 +127,14 @@ class ListShouldWorkSuite extends munit.FunSuite:
         val InnerLf = new imem.Lifetime[{ctx}]()
         val (listRef, listHolder) = imem.borrowMutBox()[InnerLf.Key, InnerLf.Owners](list5)(using ctx)
         val peekedMut = peekMut[BoxedInteger, {ctx}, InnerLf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](listRef)(using ctx).get
-        imem.write[BoxedInteger, InnerLf.Owners, Unit, {ctx}, {WC}, {MC}](peekedMut, _.value = 42)(using ctx)
+        imem.write[BoxedInteger, Unit]()(peekedMut, _.value = 42)(using ctx)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
 
       val list7 =
         val InnerLf = new imem.Lifetime[{ctx}]()
         val (listRef, listHolder) = imem.borrowImmutBox()[InnerLf.Key, InnerLf.Owners](list6)(using ctx)
         val peeked = peek[BoxedInteger, {ctx}, InnerLf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](listRef)(using ctx).get
-        assertEquals(imem.read[BoxedInteger, InnerLf.Owners, Boolean, {ctx}, {WC}, {MC}](peeked, _.value == 42)(using ctx), true)
+        assertEquals(imem.read[BoxedInteger]()(peeked, _.value == 42)(using ctx), true)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
 
       list7

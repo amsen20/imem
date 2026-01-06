@@ -89,7 +89,7 @@ def readBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^, WC^, MC^](
 ): (Box[T, Owner]^{box}, S) =
   val lf = Lifetime[{ctx, Owner}]()
   val (ref, holder) = borrowImmutBox()[lf.Key, lf.Owners](box)
-  val res = read[T, lf.Owners, S, ctxOwner, WC, MC](ref, readAction)(using ctx)
+  val res = read[T]()(ref, readAction)(using ctx)
   val newBox = unlockHolder(lf.getKey(), holder)
   (newBox, res)
 
@@ -100,7 +100,7 @@ def writeBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^, @caps.use
 ): (Box[T, Owner]^{box}, S) =
   val lf = Lifetime[{ctx, Owner}]()
   val (ref, holder) = borrowMutBox()[lf.Key, lf.Owners](box)
-  val res = write[T, lf.Owners, S, ctxOwner, WC, MC](ref, writeAction)(using ctx)
+  val res = write[T, S]()(ref, writeAction)(using ctx)
   val newBox = unlockHolder(lf.getKey(), holder)
   (newBox, res)
 
