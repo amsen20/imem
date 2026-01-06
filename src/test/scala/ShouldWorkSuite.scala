@@ -98,7 +98,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
       val list2 =
         val InnerLf = new imem.Lifetime[{ctx}]()
-        val (listRef, listHolder) = imem.borrowImmutBox[LinkedList[BoxedInteger, {ctx}], {ctx}, {ctx}, InnerLf.Key, InnerLf.Owners, WC, MC](list)(using ctx)
+        val (listRef, listHolder) = imem.borrowImmutBox()[InnerLf.Key, InnerLf.Owners](list)(using ctx)
         assertEquals(peek[BoxedInteger, {ctx}, InnerLf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, WC, MC](listRef)(using ctx).isEmpty, true)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
 
@@ -116,7 +116,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
       val list5 =
         val InnerLf = new imem.Lifetime[{ctx}]()
-        val (listRef, listHolder) = imem.borrowImmutBox[LinkedList[BoxedInteger, {ctx}], {ctx}, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list4)(using ctx)
+        val (listRef, listHolder) = imem.borrowImmutBox()[InnerLf.Key, InnerLf.Owners](list4)(using ctx)
         val peekedBox = peek[BoxedInteger, {ctx}, InnerLf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](listRef)(using ctx).get
         assertEquals(imem.read[BoxedInteger, InnerLf.Owners, Boolean, {ctx}, {WC}, {MC}](peekedBox, _.value == 1)(using ctx), true)
         imem.unlockHolder(InnerLf.getKey(), listHolder)
@@ -132,7 +132,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
       val list7 =
         val InnerLf = new imem.Lifetime[{ctx}]()
-        val (listRef, listHolder) = imem.borrowImmutBox[LinkedList[BoxedInteger, {ctx}], {ctx}, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](list6)(using ctx)
+        val (listRef, listHolder) = imem.borrowImmutBox()[InnerLf.Key, InnerLf.Owners](list6)(using ctx)
         val peeked = peek[BoxedInteger, {ctx}, InnerLf.Owners, {ctx}, InnerLf.Key, InnerLf.Owners, {WC}, {MC}](listRef)(using ctx).get
         assertEquals(imem.read[BoxedInteger, InnerLf.Owners, Boolean, {ctx}, {WC}, {MC}](peeked, _.value == 42)(using ctx), true)
         imem.unlockHolder(InnerLf.getKey(), listHolder)

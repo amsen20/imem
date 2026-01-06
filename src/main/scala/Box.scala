@@ -26,7 +26,7 @@ private[imem] object Box:
     Some((box.tag, box.internalRef))
 end Box
 
-def borrowImmutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}, WC^, MC^](
+def borrowImmutBox[@scinear.HideLinearity T, Owner^, ctxOwner^, WC^, MC^]()[newOwnerKey, newOwner^ >: {ctxOwner, Owner}](
   self: Box[T, Owner]^
 )(
   using ctx: Context[WC, MC]^{ctxOwner}
@@ -86,7 +86,7 @@ def readBox[@scinear.HideLinearity T, @caps.use Owner^, S, ctxOwner^, WC^, MC^](
   using ctx: Context[WC, MC]^{ctxOwner}
 ): (Box[T, Owner]^{box}, S) =
   val lf = Lifetime[{ctx, Owner}]()
-  val (ref, holder) = borrowImmutBox[T, Owner, {ctx}, lf.Key, lf.Owners, WC, MC](box)(using ctx)
+  val (ref, holder) = borrowImmutBox()[lf.Key, lf.Owners](box)
   val res = read[T, lf.Owners, S, ctxOwner, WC, MC](ref, readAction)(using ctx)
   val newBox = unlockHolder(lf.getKey(), holder)
   (newBox, res)

@@ -37,8 +37,7 @@ def isEmptyList[T, @caps.use O1^, @caps.use O2^, @caps.use O3^, WC^, MC^](
   imem.read[LinkedList[T, O1], O2, Boolean, O3, WC, MC](self,
       list =>
         val lf = imem.Lifetime[{O3, O2, O1}]()
-        // TODO: Divide inferrable and non-inferrable type parameters, so the following line is less verbose.
-        val (headRef, listHolder) = imem.borrowImmutBox[Link[T, O1], O1, {O3, O2}, lf.Key, lf.Owners, WC, MC](list.head)
+        val (headRef, listHolder) = imem.borrowImmutBox()[lf.Key, lf.Owners](list.head)
         val res = imem.read[Link[T, O1], lf.Owners, Boolean, {O3, O2}, WC, MC](headRef, head => head.isEmpty)
         imem.unlockHolder(lf.getKey(), listHolder)
         res
@@ -204,16 +203,17 @@ def peek[T, @caps.use O1^, @caps.use O2^, O3^, O4Key, @caps.use O4^ >: {O1, O2, 
 ): Option[imem.ImmutRef[T, O4]] =
   imem.read[LinkedList[T, O1], O2, Option[imem.ImmutRef[T, O4]], {O3, O2}, {WC}, {MC}](self,
     list =>
-      val (headRef, listHeadHolder) = imem.borrowImmutBox[Link[T, O1], O1, {O3, O2}, O4Key, O4, {WC}, {MC}](list.head)
+      // FIXME: val (headRef, listHeadHolder) = imem.borrowImmutBox[Link[T, O1], O1, {O3, O2}, O4Key, O4, {WC}, {MC}](list.head)
+      val (headRef, listHeadHolder) = imem.borrowImmutBox()[O4Key, O4](list.head)
       listHeadHolder // FIXME: Just to consume it
       imem.read[Link[T, O1], O4, Option[imem.ImmutRef[T, O4]], {O3, O2}, {WC}, {MC}](headRef,
         head => head.map(nodeBox =>
-          val (nodeRef, nodeBoxHolder) = imem.borrowImmutBox[Node[T, O1], O1, {O4}, O4Key, O4, {WC}, {MC}](nodeBox)
+          val (nodeRef, nodeBoxHolder) = imem.borrowImmutBox()[O4Key, O4](nodeBox)
           nodeBoxHolder // FIXME: Just to consume it
           imem.read[Node[T, O1], O4, imem.ImmutRef[T, O4], {O4}, {WC}, {MC}](
             nodeRef,
             node =>
-              val (res, nodeElemHolder) = imem.borrowImmutBox[T, O1, {O4}, O4Key, O4, {WC}, {MC}](node.elem)
+              val (res, nodeElemHolder) = imem.borrowImmutBox()[O4Key, O4](node.elem)
               nodeElemHolder // FIXME: Just to consume it
               res
           )
