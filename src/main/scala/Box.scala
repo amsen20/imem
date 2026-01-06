@@ -2,13 +2,13 @@ package imem
 
 import language.experimental.captureChecking
 
-def borrowImmutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}, WC^, MC^](
+private[imem] def borrowImmutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}, WC^, MC^](
   tag: InternalRef[T]#Tag,
   internalRef: InternalRef[T]
 )(using ctx: Context[WC, MC]^{ctxOwner}): ImmutRef[T, newOwner] =
   ImmutRef(internalRef.newShared(tag), internalRef)
 
-def borrowMutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}, WC^, MC^](
+private[imem] def borrowMutInternal[T, Owner^, ctxOwner^, newOwner^ >: {ctxOwner, Owner}, WC^, MC^](
   tag: InternalRef[T]#Tag,
   internalRef: InternalRef[T]
 )(using ctx: Context[WC, MC]^{ctxOwner}): MutRef[T, newOwner] =
@@ -73,7 +73,7 @@ def swapBox[@scinear.HideLinearity T, @caps.use Owner^, @caps.use OtherOwner^, c
 @throws(classOf[IllegalStateException])
 def derefForMoving[@scinear.HideLinearity T, Owner^, ctxOwner^, @scinear.HideLinearity S, WC^, @caps.use MC^](
   self: Box[T, Owner]^,
-  moveAction: T^ ->{Owner, ctxOwner, WC, MC} S
+  moveAction: Context[WC, MC]^{ctxOwner} ?->{WC, MC} T^ ->{Owner, ctxOwner, WC, MC} S
 )(using ctx: Context[WC, MC]^{ctxOwner}): S =
   val (tag, ref) = Box.unapply(self).get
 

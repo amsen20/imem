@@ -2,7 +2,7 @@ import language.experimental.captureChecking
 
 class ResourceShouldWorkSuite extends munit.FunSuite:
   test("basics: borrow, mutate and read") {
-    imem.withOwnership([WC^, MC^] => ctx =>
+    imem.withImem([WC^, MC^] => ctx =>
       // A way to express a mutable integer.
       case class BoxedInteger(var value: Int)
       val lf = new imem.Lifetime[{ctx}]()
@@ -87,7 +87,7 @@ class ListShouldWorkSuite extends munit.FunSuite:
       list9
       lf
       ()
-    imem.withOwnership([WC^, MC^] => ctx => body[WC, MC](ctx))
+    imem.withImem([WC^, MC^] => ctx => body[WC, MC](ctx))
   }
 
   test("peek and peekMut") {
@@ -139,6 +139,6 @@ class ListShouldWorkSuite extends munit.FunSuite:
 
       list7
       ()
-    imem.withOwnership([WC^, MC^] => ctx => body[WC, MC](ctx))
+    imem.withImem([WC^, MC^] => ctx => body[WC, MC](ctx))
   }
 end ListShouldWorkSuite

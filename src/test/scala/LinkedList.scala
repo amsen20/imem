@@ -186,7 +186,7 @@ def pop[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use O4^ >:
           val movedNodeBox = imem.moveBox[Node[T, O1], O1, O4, {WC}, {MC}](nodeBox)
           val res = imem.derefForMoving[Node[T, O1], O4, {O3}, imem.Box[T, O4], {WC}, {MC}](
             movedNodeBox,
-            node => imem.moveBox[T, O1, O4, {WC}, {MC}](node.elem)
+            node => imem.moveBox[T, O1, {O4}, {WC}, {MC}](node.elem)
           )
           Some(res)
     )
