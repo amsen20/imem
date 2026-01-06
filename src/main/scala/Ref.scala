@@ -7,7 +7,8 @@ class ImmutRef[T, Owner^](
   private[imem] val internalRef: InternalRef[T]
 )
 
-def borrowImmut[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}, WC^, MC^](
+def borrowImmut[@scinear.HideLinearity T, Owner^, ctxOwner^, WC^, MC^]( // Inferrable
+)[newOwnerKey, newOwner^ >: {ctxOwner, Owner}]( // Non-inferrable
   self: ImmutRef[T, Owner]^
 )(
   using ctx: Context[WC, MC]^{ctxOwner}
