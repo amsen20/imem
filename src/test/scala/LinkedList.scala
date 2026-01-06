@@ -127,7 +127,7 @@ def pop[T, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^, @caps.use O4^ >:
   else
     val (currentHead, self3) =
       val lf = imem.Lifetime[{O3, O4}]()
-      val (listRef, selfHolder) = imem.borrowMut[LinkedList[T, O1], O2, {O3, O2}, lf.Key, lf.Owners, {WC}, {MC}](self2)
+      val (listRef, selfHolder) = imem.borrowMut()[lf.Key, lf.Owners](self2)
       val currentHead = imem.newBox[Link[T, O1], O4](None)
       val res = imem.writeWithLinearArg[LinkedList[T, O1], lf.Owners, imem.Box[Link[T, O1], O4], {O3}, currentHead.type, {WC}, {MC}](
         listRef,

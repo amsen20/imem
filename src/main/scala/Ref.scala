@@ -41,7 +41,8 @@ private[imem] object MutRef:
     Some((ref.tag, ref.internalRef))
 end MutRef
 
-def borrowMut[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwner^ >: {ctxOwner, Owner}, @caps.use WC^, MC^](
+def borrowMut[@scinear.HideLinearity T, Owner^, ctxOwner^, @caps.use WC^, MC^]( // Inferrable
+)[newOwnerKey, newOwner^ >: {ctxOwner, Owner}]( // Non-inferrable
   self: MutRef[T, Owner]^
 )(
   using ctx: Context[WC, MC]^{ctxOwner}
