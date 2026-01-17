@@ -5,8 +5,6 @@ class BoxedInteger[O^](_value: imem.Box[Int, O]) extends scinear.Linear:
   val value: imem.Box[Int, O]^{this} = _value
 end BoxedInteger
 
-
-
 class ResourceShouldWorkSuite extends munit.FunSuite:
   test("basics: borrow, mutate and read") {
     def body[@caps.use WC^, @caps.use MC^](using ctx: imem.Context[WC, MC]^): Unit =

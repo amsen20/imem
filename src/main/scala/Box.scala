@@ -67,7 +67,7 @@ def swapBox[@scinear.HideLinearity T, @caps.use Owner^, @caps.use OtherOwner^, c
 @throws(classOf[IllegalStateException])
 def derefForMoving[@scinear.HideLinearity T, Owner^, ctxOwner^, @scinear.HideLinearity S, WC^, @caps.use MC^](
   self: Box[T, Owner]^,
-  moveAction: Context[WC, MC]^{ctxOwner} ?->{WC, MC} T^ ->{Owner, ctxOwner, WC, MC} S
+  moveAction: Context[WC, MC]^{ctxOwner} ?->{Owner, ctxOwner, WC, MC} T^ ->{Owner, ctxOwner, WC, MC} S
 )(using ctx: Context[WC, MC]^{ctxOwner}): S =
   val (tag, ref) = Box.unapply(self).get
 

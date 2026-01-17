@@ -1,19 +1,26 @@
 import language.experimental.captureChecking
 
-class LinkedList[T <: scinear.Linear, O1^](
-  _head: imem.Box[Link[T, O1], O1] = imem.newBox[Link[T, O1], O1](None)
+// --------------------Definition of LinkedList[T, O]--------------------
+
+class LinkedList[T <: scinear.Linear, O^](
+  _head: imem.Box[Link[T, O], O] = imem.newBox[Link[T, O], O](None)
 ) extends scinear.Linear:
-  val head: imem.Box[Link[T, O1], O1]^{this} = _head
+  val head: imem.Box[Link[T, O], O]^{this} = _head
 end LinkedList
 
-type Link[T <: scinear.Linear, O1^] = Option[imem.Box[Node[T, O1], O1]]
+type Link[T <: scinear.Linear, O^] = Option[imem.Box[Node[T, O], O]]
 
-class Node[T <: scinear.Linear, O1^](_elem: imem.Box[T, O1], _next: imem.Box[Link[T, O1], O1]) extends scinear.Linear:
-	val elem: imem.Box[T, O1]^{this} = _elem
-	val next: imem.Box[Link[T, O1], O1]^{this} = _next
+class Node[T <: scinear.Linear, O^](_elem: imem.Box[T, O], _next: imem.Box[Link[T, O], O]) extends scinear.Linear:
+  val elem: imem.Box[T, O]^{this} = _elem
+  val next: imem.Box[Link[T, O], O]^{this} = _next
 end Node
 
-// --------------------Implementation of List[T]--------------------
+object Node:
+  def unapply[T <: scinear.Linear, O^](node: Node[T, O]^): (imem.Box[T, O]^{node}, imem.Box[Link[T, O], O]^{node}) =
+    (node.elem, node.next)
+end Node
+
+// --------------------Implementation of LinkedList[T, O]--------------------
 
 def newLinkedListFromBackground[T <: scinear.Linear, WC^, MC^](using ctx: imem.Context[WC, MC]^): LinkedList[T, {ctx}] =
 		new LinkedList[T, {ctx}]()
@@ -260,3 +267,97 @@ def peekMut[T <: scinear.Linear, @caps.use O1^, O2^, O3^, O4Key, @caps.use O4^ >
             Some(res)
       )
   )
+
+
+// --------------------Definition of ConsumingIterator[T, O]--------------------
+
+// class ConsumingIterator[T <: scinear.Linear, O^](_list: imem.Box[LinkedList[T, O], O]) extends scinear.Linear:
+// 	val list: imem.Box[LinkedList[T, O], O]^{this} = _list
+// end ConsumingIterator
+
+// def hasNext[T <: scinear.Linear, @caps.use O1^, O2^, WC^, MC^](
+//   self: imem.ImmutRef[ConsumingIterator[T, O1], O1]
+// )(
+//   using ctx: imem.Context[WC, MC]^
+// ): Boolean =
+//   self
+//   ???
+
+// // -------------------Implementation of ConsumingIterator[T, O]-------------------
+
+// def moveAllElems[T <: scinear.Linear, @caps.use O1^, O2^ >: {O1}, WC^, @caps.use MC^](
+//   self: imem.Box[Link[T, O1], O1]^
+// )(
+//   using ctx: imem.Context[WC, MC]^
+// ): imem.Box[Link[T, O2], O2] =
+//   imem.derefForMoving[Link[T, O1], O1, {ctx}, imem.Box[Link[T, O2], O2], {WC}, {MC}](
+//     self,
+//     head =>
+//       if head.isEmpty then
+//         imem.newBox[Link[T, O2], O2](None)
+//       else
+//         val nodeBox = head.get
+//         val movedNodeBox = imem.moveBox[Node[T, O1], O1, O2, {WC}, {MC}](nodeBox)
+//         val res = imem.derefForMoving[Node[T, O1], O2, {ctx}, imem.Box[Link[T, O2], O2], {WC}, {MC}](
+//           movedNodeBox,
+//           node =>
+//             val (nodeElem, nodeNext) = Node.unapply(node)
+//             val movedElemBox = imem.moveBox[T, {O1}, O2, {WC}, {MC}](nodeElem)
+//             val movedNextBox = moveAllElems[T, {O1}, O2, {WC}, {MC}](nodeNext)
+//             val newNode = Node[T, O2](movedElemBox, movedNextBox)
+//             imem.newBox[Link[T, O2], O2](Some(imem.newBox[Node[T, O2], O2](newNode)))
+//         )
+//         res
+//   )
+
+
+// def intoIter[T <: scinear.Linear, @caps.use O1^, O2^ >: {O1}, WC^, @caps.use MC^](self: imem.Box[LinkedList[T, O1], O1])(
+//   using ctx: imem.Context[WC, MC]^
+// ): ConsumingIterator[T, O2] =
+//   imem.derefForMoving[LinkedList[T, O1], O1, {ctx}, ConsumingIterator[T, {O2}], {WC}, {MC}](
+//     self,
+//     list =>
+
+//       val movedList = LinkedList[T, {O2}](movedListHead)
+//       val movedListBox = imem.newBox[LinkedList[T, {O2}], {O2}](movedList)
+//       ConsumingIterator[T, {O2}](movedListBox)
+//   )
+
+// def hasNext
+
+// def intoIter(): Iterator[T] = new Iterator[T] {
+//   def hasNext: Boolean = head.isDefined
+//   def next(): T = pop().getOrElse(throw new NoSuchElementException("next on empty iterator"))
+// }
+
+// def iter(): Iterator[T] = new Iterator[T] {
+//   private var current: Link[T] = head
+//   def hasNext: Boolean = current.isDefined
+//   def next(): T = {
+//     current match {
+//       case Some(node) =>
+//         val elem = node.elem
+//         current = node.next
+//         elem
+//       case None =>
+//         throw new NoSuchElementException("next on empty iterator")
+//     }
+//   }
+// }
+
+// def iterMut(): Iterator[Node[T]] = new Iterator[Node[T]] {
+//   private var current: Link[T] = head
+//   def hasNext: Boolean = current.isDefined
+//   def next(): Node[T] = {
+//     // We need to take the current value and advance the pointer.
+//     // `take` on Option is perfect for this, as it moves the value out.
+//     val nodeOpt = current.take()
+//     nodeOpt match {
+//       case Some(node) =>
+//         current = node.next
+//         node
+//       case None =>
+//         throw new NoSuchElementException("next on empty iterator")
+//     }
+//   }
+// }
