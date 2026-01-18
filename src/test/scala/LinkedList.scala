@@ -80,7 +80,7 @@ def push[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use WC
     // checks if the list is empty
     val isListEmpty = isEmptyList(listRef)
 
-    // returns the result and unlocks the `selfHolder` to get the `self` reference.
+    // return the result and unlocks the `selfHolder` to get the `self` reference
     (isListEmpty, unlockHolder(lf.getKey(), selfHolder))
 
   // create a the new node that is going to be pushed:
@@ -165,77 +165,119 @@ def pop[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^
 )(
   using ctx: Context[WC, MC]^
 ): Option[Box[T, O3]] =
+  // understand whether the list is empty:
   val (isListEmpty, self2) =
+    // new lifetime for borrowing `self` immutably
     val lf = Lifetime[{ctx, O2}]()
+
+    // re-borrow `self` immutably
     val (listRef, selfHolder) = borrowImmut[List[T, O1], O2, {ctx, O2}, lf.Key, lf.Owners, {WC}, {MC}](self)
-    val res = isEmptyList(listRef)
-    (res, unlockHolder(lf.getKey(), selfHolder))
+    // checks if the list is empty
+    val isListEmpty = isEmptyList(listRef)
+
+    // return the result and unlock the `selfHolder` to get the `self` reference
+    (isListEmpty, unlockHolder(lf.getKey(), selfHolder))
 
   if isListEmpty then
+    // converge if branches by consuming `self2`
     self2.consume()
+    // return None, no element to pop
     None
   else
-    val (currentHead, self3) =
+    // temporary box to hold the list's head
+    val (tempHead, self3) =
+      // new lifetime for borrowing `self2` mutably
       val lf = Lifetime[{ctx, O3}]()
-      val (listRef, selfHolder) = borrowMut[List[T, O1], O2, {ctx, O2}, lf.Key, lf.Owners, {WC}, {MC}](self2)
-      val currentHead = newBox[Link[T, O1], O3](None)
-      val res = writeWithLinearArg[List[T, O1], lf.Owners, Box[Link[T, O1], O3], {ctx}, currentHead.type, {WC}, {MC}](
-        listRef,
-        currentHead,
-        ctx ?=> (list, currentHead) =>
-          val (newCurrentHead, listHead) = swapBox[Link[T, O1], {O3}, {O1}, {ctx}, {WC}, {MC}](currentHead, list.head)
-          listHead.consume()
-          newCurrentHead
-      )
-      (res, unlockHolder(lf.getKey(), selfHolder))
 
-    val currentHead2 =
+      // borrow `self2` mutably
+      val (listRef, selfHolder) = borrowMut[List[T, O1], O2, {ctx, O2}, lf.Key, lf.Owners, {WC}, {MC}](self2)
+
+      // create the temporary box
+      // the temporary box's lifetime capture set is `{O3}`, as it is going to be returned
+      val tempHead = newBox[Link[T, O1], O3](None)
+      // the state at here: {(temp head -> None), (list -> first node), (first node -> second node and the rest of the list)}
+
+      // access the `listRef`'s resource, which is the list, mutably
+      val tempHead2 = writeWithLinearArg[List[T, O1], lf.Owners, Box[Link[T, O1], O3], {ctx}, tempHead.type, {WC}, {MC}](
+        listRef,
+        tempHead,
+        ctx ?=> (list, tempHead) =>
+          // swap the `tempHead` and the `list.head`, so that the `tempHead` points to the first node
+          val (newTempHead, listHead) = swapBox[Link[T, O1], {O3}, {O1}, {ctx}, {WC}, {MC}](tempHead, list.head)
+          // the state at here: {(temp head -> first node), (list -> None), (first node -> second node and the rest of the list)}
+
+          // `listHead` is a linear variable and have to be used
+          // use `listHead` by consuming
+          listHead.consume()
+          // return the newly created temporary box pointing to the first node
+          newTempHead
+      )
+
+      // return the temporary box and unlock the `selfHolder` to get the `self2` reference
+      (tempHead2, unlockHolder(lf.getKey(), selfHolder))
+
+    val tempHead2 =
+      // new lifetime for borrowing `tempHead` mutably
       val lf = Lifetime[{ctx, O3}]()
-      val (currentHeadRef, currentHeadHolder) = borrowMutBox[Link[T, O1], O3, {ctx, O2}, lf.Key, lf.Owners, {WC}, {MC}](currentHead)
+
+      // borrow `tempHead` mutably
+      val (tempHeadRef, tempHeadHolder) = borrowMutBox[Link[T, O1], O3, {ctx, O2}, lf.Key, lf.Owners, {WC}, {MC}](tempHead)
+
+      // access the `tempHeadRef`'s resource, which is the link to the list's first node, mutably
       writeWithLinearArg[Link[T, O1], lf.Owners, Unit, {ctx}, self3.type, {WC}, {MC}](
-        currentHeadRef,
+        tempHeadRef,
         self3,
         ctx ?=> (head, self3) =>
-          val (headOpt, isHeadEmpty) = scinear.utils.peekLinearOption(head)
-          if isHeadEmpty then
-            self3.consume()
-            headOpt.isEmpty
-            None
-          else
-            val nodeBox = headOpt.get
-            val nodeBox2 =
-              val lfInner = Lifetime[{ctx, O1}]()
-              val (nodeRef, nodeBoxHolder) = borrowMutBox[Node[T, O1], O1, {ctx}, lfInner.Key, lfInner.Owners, {WC}, {MC}](nodeBox)
-              val res = writeWithLinearArg[List[T, O1], {O2}, Unit, {ctx}, nodeRef.type, {WC}, {MC}](
-                self3,
-                nodeRef,
-                ctx ?=> (list, nodeRef) =>
-                  writeWithLinearArg[Node[T, O1], lfInner.Owners, Unit, {ctx}, list.type, {WC}, {MC}](
-                    nodeRef,
-                    list,
-                    ctx ?=> (node, list) =>
-                      swapBox[Link[T, O1], {O1}, {O1}, {ctx}, {WC}, {MC}](node.next, list.head)
-                      ()
-                  )
-              )
-              unlockHolder(lfInner.getKey(), nodeBoxHolder)
-            nodeBox2.consume()
-      )
-      unlockHolder(lf.getKey(), currentHeadHolder)
+          // new lifetime for borrowing the list's first node mutably
+          val lfInner = Lifetime[{ctx, O1}]()
 
-    derefForMoving[Link[T, O1], O3, {ctx}, Option[Box[T, O3]], {WC}, {MC}](
-      currentHead2,
-      head =>
-        if head.isEmpty then
-          None
-        else
-          val nodeBox = head.get
-          val movedNodeBox = moveBox[Node[T, O1], O1, O3, {WC}, {MC}](nodeBox)
-          val res = derefForMoving[Node[T, O1], O3, {ctx}, Box[T, O3], {WC}, {MC}](
-            movedNodeBox,
-            node => moveBox[T, O1, {O3}, {WC}, {MC}](node.elem)
+          // borrow the list's first node mutably
+          val (firstNodeRef, firstNodeBoxHolder) = borrowMutBox[Node[T, O1], O1, {ctx}, lfInner.Key, lfInner.Owners, {WC}, {MC}](head.get)
+
+          // access the `self3`'s resource, which is the list, mutably
+          writeWithLinearArg[List[T, O1], {O2}, Unit, {ctx}, firstNodeRef.type, {WC}, {MC}](
+            self3,
+            firstNodeRef,
+            ctx ?=> (list, firstNodeRef) =>
+
+              // access the `firstNodeRef`'s resource, which is the first node, mutably
+              writeWithLinearArg[Node[T, O1], lfInner.Owners, Unit, {ctx}, list.type, {WC}, {MC}](
+                firstNodeRef,
+                list,
+                ctx ?=> (firstNode, list) =>
+                  // swap the node's next and the list's head
+                  swapBox[Link[T, O1], {O1}, {O1}, {ctx}, {WC}, {MC}](firstNode.next, list.head)
+                  // the state at here: {(temp head -> first node), (list -> second node and the rest of the list), (first node -> None)}
+                  ()
+              )
           )
-          Some(res)
+
+          // unlock the `firstNodeBoxHolder`, to use both `lfInner` and `firstNodeBoxHolder`
+          unlockHolder(lfInner.getKey(), firstNodeBoxHolder)
+      )
+
+      // return the temporary box and unlock the `tempHeadHolder` to get the `tempHead` reference
+      unlockHolder(lf.getKey(), tempHeadHolder)
+
+    // in here, the `tempHead2` points to the popped first node and the list points to the rest of the list
+    // the runtime memory state is correct but the lifetime capture set of the `tempHead2` still contains `{O1}`
+    // `tempHead2`'s type is: `Box[Option[Box[Node[T, O1], O1]], O3]`
+
+    // access the `tempHead2`'s resource, which is the link to the popped node
+    derefForMoving[Link[T, O1], O3, {ctx}, Option[Box[T, O3]], {WC}, {MC}](
+      tempHead2,
+      link =>
+        // box to the popped node
+        val nodeBox = link.get
+        // access the `nodeBox`'s resource, which is the popped node
+        val movedElem = derefForMoving[Node[T, O1], O1, {ctx}, Box[T, O3], {WC}, {MC}](
+          nodeBox,
+          // move the box to popped node's element to the new owner
+          node => moveBox[T, O1, {O3}, {WC}, {MC}](node.elem)
+        )
+
+        // return the moved element box
+        Some(movedElem)
     )
 
 /**
