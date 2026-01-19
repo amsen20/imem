@@ -291,28 +291,48 @@ def pop[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^
 def peek[T <: scinear.Linear, @caps.use O1^, @caps.use O2^, O3^, O4Key, @caps.use O4^ >: {O1, O2, O3}, WC^, MC^](
   self: ImmutRef[List[T, O1], O2]
 )(
-  using Context[WC, MC]^{O3}
+  using ctx: Context[WC, MC]^{O3}
 ): Option[ImmutRef[T, O4]] =
-  read[List[T, O1], O2, Option[ImmutRef[T, O4]], {O3, O2}, {WC}, {MC}](self,
-    list =>
-      val (headRef, listHeadHolder) = borrowImmutBox[Link[T, O1], O1, {O3, O2}, O4Key, O4, {WC}, {MC}](list.head)
+  // access the `self`'s reference resource, which is the list
+  read[List[T, O1], O2, Option[ImmutRef[T, O4]], {ctx}, {WC}, {MC}](self,
+    ctx ?=> list =>
+      // borrow the list's head immutably
+      val (headRef, listHeadHolder) = borrowImmutBox[Link[T, O1], O1, {ctx}, O4Key, O4, {WC}, {MC}](list.head)
+
+      // use `listHeadHolder` by consuming because it is a linear variable that is no longer needed
       listHeadHolder.consume()
-      read[Link[T, O1], O4, Option[ImmutRef[T, O4]], {O3, O2}, {WC}, {MC}](headRef,
-        head =>
-          val (headOpt, isHeadEmpty) = scinear.utils.peekLinearOption(head)
-          if isHeadEmpty then
-            headOpt.isEmpty
+
+      // access the head's (`headRef`'s) resource, which is a link to the next node
+      read[Link[T, O1], O4, Option[ImmutRef[T, O4]], {ctx}, {WC}, {MC}](headRef,
+        ctx ?=> linkOpt =>
+          // without consuming the option, check whether `linkOpt` is empty or not
+          val (linkOpt2, isListEmpty) = scinear.utils.peekLinearOption(linkOpt)
+
+          // the behavior changes based on list emptiness
+          if isListEmpty then
+            // converge if branches by consuming `linkOpt2`
+            linkOpt2.isEmpty
+            // return None, no element to peek
             None
           else
-            val nodeBox = headOpt.get
-            val (nodeRef, nodeBoxHolder) = borrowImmutBox[Node[T, O1], O1, {O4}, O4Key, O4, {WC}, {MC}](nodeBox)
+            // get the box pointing to the list's first node
+            val nodeBox = linkOpt2.get
+            // borrow the first node immutably
+            val (nodeRef, nodeBoxHolder) = borrowImmutBox[Node[T, O1], O1, {ctx}, O4Key, O4, {WC}, {MC}](nodeBox)
+            // use `nodeBoxHolder` by consuming because it is a linear variable that is no longer needed
             nodeBoxHolder.consume()
-            read[Node[T, O1], O4, Option[ImmutRef[T, O4]], {O4}, {WC}, {MC}](
+
+            // access the `nodeRef`'s resource, which is the first node
+            read[Node[T, O1], O4, Option[ImmutRef[T, O4]], {ctx}, {WC}, {MC}](
               nodeRef,
-              node =>
-                val (res, nodeElemHolder) = borrowImmutBox[T, O1, {O4}, O4Key, O4, {WC}, {MC}](node.elem)
+              ctx ?=> node =>
+                // borrow the first node's element immutably
+                val (nodeRef, nodeElemHolder) = borrowImmutBox[T, O1, {ctx}, O4Key, O4, {WC}, {MC}](node.elem)
+                // use `nodeElemHolder` by consuming because it is a linear variable that is no longer needed
+                // the function only needs the reference to the element
                 nodeElemHolder.consume()
-                Some(res)
+                // return the reference to list's first node's element
+                Some(nodeRef)
             )
       )
   )
