@@ -350,80 +350,156 @@ def peekMut[T <: scinear.Linear, @caps.use O1^, O2^, O3^, O4Key, @caps.use O4^ >
 )(
   using ctx: Context[WC, MC]^{O3}
 ): Option[MutRef[T, O4]] =
-  write[List[T, O1], O2, Option[MutRef[T, O4]], {O3, O2}, {WC}, {MC}](self,
-    list =>
-      val (headRef, listHeadHolder) = borrowMutBox[Link[T, O1], O1, {O3, O2}, O4Key, O4, {WC}, {MC}](list.head)
+  // access the `self`'s reference resource, which is the list
+  write[List[T, O1], O2, Option[MutRef[T, O4]], {ctx}, {WC}, {MC}](self,
+    ctx ?=> list =>
+      // borrow the list's head mutably
+      val (headRef, listHeadHolder) = borrowMutBox[Link[T, O1], O1, {ctx}, O4Key, O4, {WC}, {MC}](list.head)
+
+      // use `listHeadHolder` by consuming because it is a linear variable that is no longer needed
       listHeadHolder.consume()
-      write[Link[T, O1], O4, Option[MutRef[T, O4]], {O3, O2}, {WC}, {MC}](headRef,
-        (ctx: Context[{WC}, {MC}]^{O4}) ?=> head =>
-          if head.isEmpty then
+
+      // access the head's (`headRef`'s) resource, which is a link to the next node
+      write[Link[T, O1], O4, Option[MutRef[T, O4]], {ctx}, {WC}, {MC}](headRef,
+        ctx ?=> linkOpt =>
+          // without consuming the option, check whether `linkOpt` is empty or not
+          val (linkOpt2, isListEmpty) = scinear.utils.peekLinearOption(linkOpt)
+
+          // the behavior changes based on list emptiness
+          if isListEmpty then
+            // converge if branches by consuming `linkOpt2`
+            linkOpt2.isEmpty
+            // return None, no element to peek
             None
           else
-            val nodeBox = head.get
-            val (nodeRef, nodeBoxHolder) = borrowMutBox[Node[T, O1], O1, {O4}, O4Key, O4, {WC}, {MC}](nodeBox)
+            // get the box pointing to the list's first node
+            val nodeBox = linkOpt2.get
+            // borrow the first node mutably
+            val (nodeRef, nodeBoxHolder) = borrowMutBox[Node[T, O1], O1, {ctx}, O4Key, O4, {WC}, {MC}](nodeBox)
+            // use `nodeBoxHolder` by consuming because it is a linear variable that is no longer needed
             nodeBoxHolder.consume()
-            val res = write[Node[T, O1], O4, MutRef[T, O4], {O4}, {WC}, {MC}](
+
+            // access the `nodeRef`'s resource, which is the first node
+            write[Node[T, O1], O4, Option[MutRef[T, O4]], {ctx}, {WC}, {MC}](
               nodeRef,
-              node => borrowMutBox[T, O1, {O4}, O4Key, O4, {WC}, {MC}](node.elem)._1
+              ctx ?=> node =>
+                // borrow the first node's element mutably
+                val (nodeRef, nodeElemHolder) = borrowMutBox[T, O1, {ctx}, O4Key, O4, {WC}, {MC}](node.elem)
+                // use `nodeElemHolder` by consuming because it is a linear variable that is no longer needed
+                // the function only needs the reference to the element
+                nodeElemHolder.consume()
+                // return the mutable reference to list's first node's element
+                Some(nodeRef)
             )
-            Some(res)
       )
   )
 
 
 // --------------------Definition of ConsumingIterator[T, O]--------------------
 
-// class ConsumingIterator[T <: scinear.Linear, O^](_list: Box[LinkedList[T, O], O]) extends scinear.Linear:
-// 	val list: Box[LinkedList[T, O], O]^{this} = _list
-// end ConsumingIterator
+class ConsumingIterator[T <: scinear.Linear, O^](_list: Box[List[T, O], O]) extends scinear.Linear:
+	val list: Box[List[T, O], O]^{this} = _list
+end ConsumingIterator
 
-// def hasNext[T <: scinear.Linear, @caps.use O1^, O2^, WC^, MC^](
-//   self: ImmutRef[ConsumingIterator[T, O1], O1]
-// )(
-//   using ctx: Context[WC, MC]^
-// ): Boolean =
-//   self
-//   ???
+def hasNext[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, WC^, MC^](
+  self: ImmutRef[ConsumingIterator[T, O1], O2]
+)(
+  using ctx: Context[WC, MC]^
+): Boolean =
+  // access the `self`'s reference resource, which is the consuming iterator
+  read[ConsumingIterator[T, O1], O2, Boolean, {ctx}, {WC}, {MC}](self,
+    ctx ?=> iter =>
+      // new lifetime for borrowing the iterator's list box immutably
+      val lf = Lifetime[{ctx, O2}]()
 
-// // -------------------Implementation of ConsumingIterator[T, O]-------------------
+      // borrow the iterator's list box immutably
+      val (listRef, listHolder) = borrowImmutBox[List[T, O1], O1, {ctx}, lf.Key, lf.Owners, {WC}, {MC}](iter.list)
+      // check whether the list is empty
+      val hasNext = !isEmptyList[T, {O1}, lf.Owners, {WC}, {MC}](listRef)
 
-// def moveAllElems[T <: scinear.Linear, @caps.use O1^, O2^ >: {O1}, WC^, @caps.use MC^](
-//   self: Box[Link[T, O1], O1]^
-// )(
-//   using ctx: Context[WC, MC]^
-// ): Box[Link[T, O2], O2] =
-//   derefForMoving[Link[T, O1], O1, {ctx}, Box[Link[T, O2], O2], {WC}, {MC}](
-//     self,
-//     head =>
-//       if head.isEmpty then
-//         newBox[Link[T, O2], O2](None)
-//       else
-//         val nodeBox = head.get
-//         val movedNodeBox = moveBox[Node[T, O1], O1, O2, {WC}, {MC}](nodeBox)
-//         val res = derefForMoving[Node[T, O1], O2, {ctx}, Box[Link[T, O2], O2], {WC}, {MC}](
-//           movedNodeBox,
-//           node =>
-//             val (nodeElem, nodeNext) = Node.unapply(node)
-//             val movedElemBox = moveBox[T, {O1}, O2, {WC}, {MC}](nodeElem)
-//             val movedNextBox = moveAllElems[T, {O1}, O2, {WC}, {MC}](nodeNext)
-//             val newNode = Node[T, O2](movedElemBox, movedNextBox)
-//             newBox[Link[T, O2], O2](Some(newBox[Node[T, O2], O2](newNode)))
-//         )
-//         res
-//   )
+      // use both `lf` and `listHolder` linear variables
+      unlockHolder(lf.getKey(), listHolder).consume()
+
+      // return the result
+      hasNext
+  )
+
+def next[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use WC^, @caps.use MC^](
+  self: MutRef[ConsumingIterator[T, O1], O2]
+)(
+  using ctx: Context[WC, MC]^
+): Option[Box[T, O2]] =
+  // access the `self`'s reference resource, which is the consuming iterator
+  val listRef = write[ConsumingIterator[T, O1], O2, MutRef[List[T, O1], {O2, ctx}], {ctx}, {WC}, {MC}](self,
+    ctxInner ?=> iter =>
+      // borrow the iterator's list box mutably
+      val (listRef, listHolder) = borrowMutBox[List[T, O1], O1, {ctxInner}, NeverUsableKey, {O2, ctx}, {WC}, {MC}](iter.list)
+      // use `listHolder` by consuming because it is a linear variable that is no longer needed
+      listHolder.consume()
+      // return the mutable reference to the iterator's list
+      listRef
+  )
+
+  // pop an element from the list
+  val poppedElem = pop[T, {O1}, {O2, ctx}, {O2, ctx}, {WC}, {MC}](listRef)
+  // here the popped element's runtime value matches the function's return value
+  // but, its lifetime capture set is {O2}, and the function returns a box with
+  // with lifetime capture set {O2}
+
+  // move the `poppedElem` from {O2, ctx} to {O2}
+  val movedPoppedElem =
+    // without consuming the option, check whether `poppedElem` is empty or not
+    val (poppedElem2, isNone) = scinear.utils.peekLinearOption(poppedElem)
+    if isNone then
+      // converge if branches by consuming `poppedElem2`
+      poppedElem2.get
+      // return None with the correct type
+      None
+    else
+      // move the box pointing to the popped element to the needed owner
+      Some(moveBox[T, {O2, ctx}, {O2}, {WC}, {MC}](poppedElem2.get))
+
+  // return the moved popped element
+  movedPoppedElem
+
+// -------------------Implementation of ConsumingIterator[T, O]-------------------
+
+def moveAllElems[T <: scinear.Linear, @caps.use O1^, O2^, WC^, @caps.use MC^](
+  self: Box[Link[T, O1], O1]^
+)(
+  using ctx: Context[WC, MC]^
+): Box[Link[T, O2], O2] =
+  derefForMoving[Link[T, O1], O1, {ctx}, Box[Link[T, O2], O2], {WC}, {MC}](
+    self,
+    ctx ?=> head =>
+      if head.isEmpty then
+        newBox[Link[T, O2], O2](None)
+      else
+        val nodeBox = head.get
+        val res = derefForMoving[Node[T, O1], O1, {ctx}, Box[Link[T, O2], O2], {WC}, {MC}](
+          nodeBox,
+          node =>
+            val (nodeElem, nodeNext) = Node.unapply(node)
+            val movedElemBox = moveBox[T, {O1}, O2, {WC}, {MC}](nodeElem)
+            val movedNextBox = moveAllElems[T, {O1}, O2, {WC}, {MC}](nodeNext)
+            val newNode = Node[T, O2](movedElemBox, movedNextBox)
+            newBox[Link[T, O2], O2](Some(newBox[Node[T, O2], O2](newNode)))
+        )
+        res
+  )
 
 
-// def intoIter[T <: scinear.Linear, @caps.use O1^, O2^ >: {O1}, WC^, @caps.use MC^](self: Box[LinkedList[T, O1], O1])(
-//   using ctx: Context[WC, MC]^
-// ): ConsumingIterator[T, O2] =
-//   derefForMoving[LinkedList[T, O1], O1, {ctx}, ConsumingIterator[T, {O2}], {WC}, {MC}](
-//     self,
-//     list =>
-
-//       val movedList = LinkedList[T, {O2}](movedListHead)
-//       val movedListBox = newBox[LinkedList[T, {O2}], {O2}](movedList)
-//       ConsumingIterator[T, {O2}](movedListBox)
-//   )
+def intoIter[T <: scinear.Linear, @caps.use O1^, O2^, WC^, @caps.use MC^](self: Box[List[T, O1], O1])(
+  using ctx: Context[WC, MC]^
+): ConsumingIterator[T, O2] =
+  derefForMoving[List[T, O1], O1, {ctx}, ConsumingIterator[T, {O2}], {WC}, {MC}](
+    self,
+    list =>
+      val movedListHead = moveAllElems[T, {O1}, O2, {WC}, {MC}](list.head)
+      val movedList = List[T, {O2}](movedListHead)
+      val movedListBox = newBox[List[T, {O2}], {O2}](movedList)
+      ConsumingIterator[T, {O2}](movedListBox)
+  )
 
 // def hasNext
 
