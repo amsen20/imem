@@ -526,7 +526,7 @@ def intoIter[T <: scinear.Linear, @caps.use O1^, O2^, WC^, @caps.use MC^](
 
 // --------------------Definition of MutableIterator[T, O1, O2]--------------------
 
-class MutableIterator[T <: scinear.Linear, O1^, O2^](_boxToLink: Box[MutRef[Link[T, O1], O2], O2]) extends scinear.Linear:
+class MutableIterator[T <: scinear.Linear, O1^, O2^ >: {O1}](_boxToLink: Box[MutRef[Link[T, O1], O2], O2]) extends scinear.Linear:
   val boxToLink: Box[MutRef[Link[T, O1], O2], O2]^{this} = _boxToLink
 end MutableIterator
 
