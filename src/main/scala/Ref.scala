@@ -2,9 +2,6 @@ package imem
 
 import language.experimental.captureChecking
 
-// TODO: Remove the union, instead store the internal refs and call check functions on them.
-type Ref = ImmutRef[?, ?] | MutRef[?, ?]
-
 class ImmutRef[T, Owner^](
   private[imem] val tag: InternalRef[T]#Tag,
   private[imem] val internalRef: InternalRef[T]
@@ -14,13 +11,12 @@ def borrowImmut[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwn
   self: ImmutRef[T, Owner]^
 )(
   using ctx: Context[WC, MC]^{ctxOwner}
-  // TODO: Check if not capturing `self` in return type is ok.
 ): ImmutRef[T, newOwner] =
   ImmutRef(self.internalRef.newShared(self.tag), self.internalRef)
 
 def read[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^, WC^, MC^](
   self: ImmutRef[T, Owner]^,
-  readAction: Context[WC, MC]^{ctxOwner, Owner} ?-> T^ ->{Owner, ctxOwner} S
+  readAction: Context[WC, MC]^{ctxOwner, Owner} ?->{Owner, ctxOwner} T^ ->{Owner, ctxOwner} S
 )(
   using ctx: Context[WC, MC]^{ctxOwner}
 ): S =
@@ -62,7 +58,7 @@ def borrowImmut[@scinear.HideLinearity T, Owner^, ctxOwner^, newOwnerKey, newOwn
 
 def write[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity S, ctxOwner^, @caps.use WC^, MC^](
   self: MutRef[T, Owner]^,
-  writeAction: Context[{WC}, {MC}]^{ctxOwner, Owner} ?->{WC} T^ ->{Owner, ctxOwner, WC} S
+  writeAction: Context[WC, MC]^{ctxOwner, Owner} ?->{Owner, ctxOwner, WC} T^ ->{Owner, ctxOwner, WC} S
 )(
   using ctx: Context[WC, MC]^{ctxOwner}
 ): S =
@@ -80,8 +76,6 @@ def writeWithLinearArg[@scinear.HideLinearity T, Owner^, @scinear.HideLinearity 
   internalRef.writeWithLinearArg[S, LinearArgType](tag, linearArg, writeAction(using ctx))
 
 private[imem] def readCheck[T, Owner^](self: MutRef[T, Owner]): Unit =
-  // FIXME: It is possible that the parents are not sufficient to guarantee safety.
-  // This means that this function has to call checks on parents as well.
   val (tag, internalRef) = MutRef.unapply(self).get
   internalRef.readCheck(tag)
 

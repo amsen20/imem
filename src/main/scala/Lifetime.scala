@@ -15,3 +15,5 @@ def unlockHolder[KeyType, @scinear.HideLinearity T](
   key: KeyType,
   holder: ValueHolder[KeyType, T]^
 ): T^{holder} = holder.value
+
+opaque type NeverUsableKey = Object
