@@ -452,7 +452,7 @@ def nextCI[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use 
     val (poppedElem2, isNone) = scinear.utils.peekLinearOption(poppedElem)
     if isNone then
       // converge if branches by consuming `poppedElem2`
-      poppedElem2.get
+      poppedElem2.isEmpty
       // return None with the correct type
       None
     else
@@ -479,7 +479,7 @@ def moveAllElems[T <: scinear.Linear, @caps.use O1^, O2^, WC^, @caps.use MC^](
       // the behavior changes based on whether there is a next node or not
       if isEmpty then
         // converge if branches by consuming `nextOpt2`
-        nextOpt2.get
+        nextOpt2.isEmpty
         // return a box pointing to None
         newBox[Link[T, O2], O2](None)
       else
@@ -618,7 +618,7 @@ def nextMI[T <: scinear.Linear, @caps.use O1^, O3^, @caps.use O2^ >: {O1, O3}, @
               // the behavior changes based on whether there is a next node or not
               if isEmpty then
                 // converge if branches by consuming `link2`
-                link2.get
+                link2.isEmpty
                 // leave iterator's box to link unchanged, it is now pointing to `None`, which is correct
                 iterBoxToLink.consume()
                 // return None, no next element
