@@ -32,8 +32,8 @@ def newLinkedListExplicit[T <: scinear.Linear, O1^]: List[T, O1] =
 /**
   * Type parameters:
   * @param T The type of elements in the list
-  * @param O1 The list nodes owner
-  * @param O2 The list reference (`self`) owner
+  * @param O1 The list owner set
+  * @param O2 The list reference (`self`) owner set
   */
 def isEmptyList[T <: scinear.Linear, @caps.use O1^, @caps.use O2^, WC^, MC^](
   self: ImmutRef[List[T, O1], O2]
@@ -61,8 +61,8 @@ def isEmptyList[T <: scinear.Linear, @caps.use O1^, @caps.use O2^, WC^, MC^](
 /**
   * Type parameters:
   * @param T The type of elements in the list
-  * @param O1 The list nodes owner
-  * @param O2 The list reference (`self`) owner
+  * @param O1 The list owner set
+  * @param O2 The list reference (`self`) owner set
   */
 def push[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use WC^, MC^](
   self: MutRef[List[T, O1], O2]^,
@@ -156,9 +156,9 @@ def push[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use WC
 /**
   * Type parameters:
   * @param T The type of elements in the list
-  * @param O1 The list nodes owner
-  * @param O2 The list reference (`self`) owner
-  * @param O3 The returned box owner (which contains the popped element)
+  * @param O1 The list nodes owner set
+  * @param O2 The list reference (`self`) owner set
+  * @param O3 The returned box owner set (which contains the popped element)
   */
 def pop[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^ >: {O2}, @caps.use WC^, @caps.use MC^](
   self: MutRef[List[T, O1], O2]
@@ -283,11 +283,11 @@ def pop[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use O3^
 /**
   * Type parameters:
   * @param T The type of elements in the list
-  * @param O1 The list nodes owner
-  * @param O2 The list reference (`self`) owner
-  * @param O3 The context owner
+  * @param O1 The list nodes owner set
+  * @param O2 The list reference (`self`) owner set
+  * @param O3 The context owner set, i.e. the context aggregated set of owners
   * @param O4 The returned reference owner (which contains the peeked element)
-*/
+  */
 def peek[T <: scinear.Linear, @caps.use O1^, @caps.use O2^, O3^, O4Key, @caps.use O4^ >: {O1, O2, O3}, WC^, MC^](
   self: ImmutRef[List[T, O1], O2]
 )(
@@ -340,11 +340,11 @@ def peek[T <: scinear.Linear, @caps.use O1^, @caps.use O2^, O3^, O4Key, @caps.us
 /**
   * Type parameters:
   * @param T The type of elements in the list
-  * @param O1 The list nodes owner
-  * @param O2 The list reference (`self`) owner
-  * @param O3 The context owner
-  * @param O4 The returned reference owner (which contains the peeked element)
-*/
+  * @param O1 The list nodes owner set
+  * @param O2 The list reference (`self`) owner set
+  * @param O3 The context owner set, i.e. the context aggregated set of owners
+  * @param O4 The returned reference owner set (which contains the peeked element)
+  */
 def peekMut[T <: scinear.Linear, @caps.use O1^, O2^, O3^, O4Key, @caps.use O4^ >: {O1, O2, O3}, @caps.use WC^, MC^](
   self: MutRef[List[T, O1], O2]
 )(
@@ -397,10 +397,21 @@ def peekMut[T <: scinear.Linear, @caps.use O1^, O2^, O3^, O4Key, @caps.use O4^ >
 
 // --------------------Definition of ConsumingIterator[T, O]--------------------
 
+/**
+  * Type parameters:
+  * @param T The type of elements in the list
+  * @param O The consuming iterator owner set
+  */
 class ConsumingIterator[T <: scinear.Linear, O^](_list: Box[List[T, O], O]) extends scinear.Linear:
 	val list: Box[List[T, O], O]^{this} = _list
 end ConsumingIterator
 
+/**
+	* Type parameters:
+	* @param T The type of elements in the list
+	* @param O1 The consuming iterator owner set
+	* @param O2 The reference to the consuming iterator (`self`) owner set
+	*/
 def hasNextCI[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, WC^, MC^](
   self: ImmutRef[ConsumingIterator[T, O1], O2]^
 )(
@@ -424,6 +435,12 @@ def hasNextCI[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, WC^, MC
       hasNext
   )
 
+/**
+  * Type parameters:
+  * @param T The type of elements in the list
+  * @param O1 The consuming iterator owner set
+  * @param O2 The reference to the consuming iterator (`self`) owner set
+  */
 def nextCI[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use WC^, @caps.use MC^](
   self: MutRef[ConsumingIterator[T, O1], O2]^
 )(
@@ -464,6 +481,12 @@ def nextCI[T <: scinear.Linear, @caps.use O1^, @caps.use O2^ >: {O1}, @caps.use 
 
 // -------------------Implementation of ConsumingIterator[T, O]-------------------
 
+/**
+  * Type parameters:
+  * @param T The type of elements in the list
+  * @param O1 The list and the box to the list (`self`) owner set
+  * @param O2 The target owner set to move the list to
+  */
 def moveAllElems[T <: scinear.Linear, @caps.use O1^, O2^, WC^, @caps.use MC^](
   self: Box[Link[T, O1], O1]^
 )(
@@ -504,7 +527,12 @@ def moveAllElems[T <: scinear.Linear, @caps.use O1^, O2^, WC^, @caps.use MC^](
         newBoxToLink
   )
 
-
+/**
+  * Type parameters:
+  * @param T The type of elements in the list
+  * @param O1 The list and the box to the list (`self`) owner set
+  * @param O2 The consuming iterator owner set
+  */
 def intoIter[T <: scinear.Linear, @caps.use O1^, O2^, WC^, @caps.use MC^](
   self: Box[List[T, O1], O1]
 )(
@@ -526,10 +554,23 @@ def intoIter[T <: scinear.Linear, @caps.use O1^, O2^, WC^, @caps.use MC^](
 
 // --------------------Definition of MutableIterator[T, O1, O2]--------------------
 
+/**
+  * Type parameters:
+  * @param T The type of elements in the list
+  * @param O1 The list to be iterated owner set
+  * @param O2 The mutable iterator and the mutable reference to the list owner set
+  */
 class MutableIterator[T <: scinear.Linear, O1^, O2^ >: {O1}](_boxToLink: Box[MutRef[Link[T, O1], O2], O2]) extends scinear.Linear:
   val boxToLink: Box[MutRef[Link[T, O1], O2], O2]^{this} = _boxToLink
 end MutableIterator
 
+/**
+  * Type parameters:
+  * @param T The type of elements in the list
+  * @param O1 The list to be iterated owner set
+  * @param O2 The mutable iterator owner set
+  * @param O3 The reference to the mutable iterator (`self`) owner set
+  */
 def hasNextMI[T <: scinear.Linear, @caps.use O1^, O3^, @caps.use O2^ >: {O1, O3}, WC^, MC^](
   self: ImmutRef[MutableIterator[T, O1, O2], O3]^
 )(
@@ -573,6 +614,13 @@ def hasNextMI[T <: scinear.Linear, @caps.use O1^, O3^, @caps.use O2^ >: {O1, O3}
       hasNext
   )
 
+/**
+	* Type parameters:
+	* @param T The type of elements in the list
+	* @param O1 The list to be iterated owner set
+	* @param O2 The mutable iterator owner set
+	* @param O3 The reference to the mutable iterator (`self`) owner set
+	*/
 def nextMI[T <: scinear.Linear, @caps.use O1^, O3^, @caps.use O2^ >: {O1, O3}, @caps.use WC^, MC^](
   self: MutRef[MutableIterator[T, O1, O2], O3]^
 )(
@@ -660,6 +708,13 @@ def nextMI[T <: scinear.Linear, @caps.use O1^, O3^, @caps.use O2^ >: {O1, O3}, @
       )
   )
 
+/**
+  * Type parameters:
+  * @param T The type of elements in the list
+  * @param O1 The list to be iterated owner set
+  * @param O2 The mutable reference to the list (`self`) and the resulting mutable iterator owner set
+  * @param O3 The context owner set, i.e. the context aggregated set of owners
+  */
 def iterMut[T <: scinear.Linear, @caps.use O1^, O3^, O2^ >: {O1, O3}, @caps.use WC^, MC^](
   self: MutRef[List[T, O1], O2]
 )(
